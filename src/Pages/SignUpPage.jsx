@@ -1,6 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { signUpWithEmail, signInWithGoogle, signInWithFacebook, getErrorMessage } from '../Firebase/auth';
+
+import img01 from '../assets/fade/img01.jpg'
+import img02 from '../assets/fade/img02.jpg'
+import img03 from '../assets/fade/img03.jpg'
+import img04 from '../assets/fade/img04.jpg'
+import img05 from '../assets/fade/img05.jpg'
+import img06 from '../assets/fade/img06.jpg'
 
 const SignUpPage = () => {
   const navigate = useNavigate();
@@ -12,6 +19,12 @@ const SignUpPage = () => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+
+  const backgroundImages = [
+img01, img02, img03,img04, img05,img06
+];
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -96,8 +109,28 @@ const SignUpPage = () => {
     setLoading(false);
   };
 
+  useEffect(() => {
+  const interval = setInterval(() => {
+    setCurrentImageIndex((prevIndex) => (prevIndex + 1) % backgroundImages.length);
+  }, 4000); // Change image every 4 seconds
+
+  return () => clearInterval(interval);
+}, []);
+
   return (
-    <div className="flex bg-[url('https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&h=500&fit=crop')] bg-no-repeat bg-cover">
+    <div className="flex relative overflow-hidden">
+  {/* Mobile Background - shown on small screens */}
+    <div className="md:hidden absolute inset-0">
+      {backgroundImages.map((image, index) => (
+        <div
+          key={index}
+          className={`absolute inset-0 bg-cover bg-center bg-no-repeat transition-opacity duration-1000 ${
+            index === currentImageIndex ? 'opacity-100' : 'opacity-0'
+          }`}
+          style={{ backgroundImage: `url('${image}')` }}
+        />
+      ))}
+    </div>
       <div className="flex-1 flex items-center justify-center p-8 md:p-12 relative z-10 md:bg-white">
         <div className="w-full max-w-md bg-white/[0.8] md:bg-white md:bg-transparent p-8 md:p-0 rounded-2xl md:rounded-none">
           <div className="mb-8">
@@ -224,12 +257,26 @@ const SignUpPage = () => {
         </div>
       </div>
 
-      <div className="hidden md:flex flex-1 bg-[url('https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&h=500&fit=crop')] bg-no-repeat bg-cover items-center justify-center p-12 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-pink-300 rounded-full opacity-30 blur-3xl"></div>
-        <div className="absolute bottom-0 left-0 w-80 h-80 bg-pink-400 rounded-full opacity-20 blur-3xl"></div>
-      </div>
+       {/* Right Side - Animated Background Images (desktop only) */}
+    <div className="hidden md:flex flex-1 items-center justify-center p-12 relative overflow-hidden">
+      {backgroundImages.map((image, index) => (
+        <div
+          key={`desktop-${index}`}
+          className={`absolute inset-0 bg-cover bg-center bg-no-repeat transition-opacity duration-1000 ${
+            index === currentImageIndex ? 'opacity-100' : 'opacity-0'
+          }`}
+          style={{ backgroundImage: `url('${image}')` }}
+        />
+      ))}
+      
+      {/* Decorative gradient overlays */}
+      <div className="absolute top-0 right-0 w-96 h-96 bg-pink-300 rounded-full opacity-30 blur-3xl"></div>
+      <div className="absolute bottom-0 left-0 w-80 h-80 bg-pink-400 rounded-full opacity-20 blur-3xl"></div>
+    </div>
 
-      <div className="md:hidden fixed inset-0 bg-gradient-to-br from-pink-100 to-pink-200 opacity-50 -z-10"></div>
+       {/* Mobile gradient overlay */}
+    <div className="md:hidden fixed inset-0 bg-gradient-to-br from-pink-100 to-pink-200 opacity-50 -z-10"></div>
+  
     </div>
   );
 };
