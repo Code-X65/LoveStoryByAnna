@@ -12,7 +12,7 @@ import Homepages from './Pages/Homepages';
 import SignUpPage from './Pages/SignUpPage';
 import LoginPage from './Pages/LoginPage';
 import KidsClothingShop from './Components/Shop/KidsClothingShop';
-import ProductCollections from './Components/common/ProductCollections';
+import ProductCollections from './Pages/ProductCollections';
 import ProductDetailPage from './Components/common/ProductDetailPage';
 import CartPage from './Pages/CartPage';
 import CheckoutPage from './Pages/CheckoutPage';
@@ -20,6 +20,7 @@ import WishlistPage from './Pages/WishlistPage';
 import UserProfileDashboard from './Pages/UserProfileDashboard';
 import ForgotPasswordPage from './Components/ForgotPasswordPage';
 import NotFoundPage from './Pages/NotFoundPage';
+import CollectionPages from './Pages/CollectionPages';
 
 const App = () => {
   return (
@@ -33,8 +34,10 @@ const App = () => {
             {/* Public Routes */}
             <Route index element={<Homepages />} />
             <Route path='/clothing' element={<KidsClothingShop />} />
-            <Route path='/collections' element={<ProductCollections />} />
+            <Route path='/collections/:category?' element={<ProductCollections />} />
             <Route path='/details' element={<ProductDetailPage />} />
+            <Route path='/collect' element={<CollectionPages />} />
+
             <Route path='*' element={<NotFoundPage />} />
 
             

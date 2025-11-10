@@ -134,7 +134,7 @@ export default function Hero() {
                 <img
                   src={banner.image}
                   alt={`${banner.title} ${banner.subtitle}`}
-                  className="absolute inset-0 w-full h-full object-cover"
+                  className="absolute inset-0 w-full h-full object-cover bg-fixed "
                 />
                 <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent" />
                 
