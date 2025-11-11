@@ -1,17 +1,62 @@
 import React, { useState } from 'react';
 import { User, Package, MapPin, Heart, Settings, LogOut, ChevronRight, Edit2, Trash2, Plus, Eye } from 'lucide-react';
+import { useEffect } from 'react';
+import { auth } from '../../Firebase/Firebase';
+import { getUserProfile, updateUserProfile } from '../../Firebase/userProfileServices';
 
 // Account Component
 const MyAccount = () => {
-  const [isEditing, setIsEditing] = useState(false);
+const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [userData, setUserData] = useState({
-    firstName: 'Chioma',
-    lastName: 'Okonkwo',
-    email: 'chioma.okonkwo@email.com',
-    phone: '+234 803 456 7890',
-    dateOfBirth: '1990-05-15',
-    gender: 'Female'
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    dateOfBirth: '',
+    gender: ''
   });
+
+   useEffect(() => {
+    const fetchUserData = async () => {
+      const user = auth.currentUser;
+      if (user) {
+        const result = await getUserProfile(user.uid);
+        if (result.success) {
+          setUserData(result.data);
+        }
+      }
+      setLoading(false);
+    };
+    
+    fetchUserData();
+  }, []);
+
+   // ADD this function:
+  const handleSaveChanges = async () => {
+    const user = auth.currentUser;
+    if (user) {
+      const result = await updateUserProfile(user.uid, userData);
+      if (result.success) {
+        alert('Profile updated successfully!');
+        setIsEditing(false);
+      } else {
+        alert('Failed to update profile: ' + result.error);
+      }
+    }
+  };
+
+  // ADD loading state:
+  if (loading) {
+    return (
+      <div className="bg-white border border-gray-200 p-6">
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-300 mx-auto"></div>
+          <p className="text-gray-600 mt-4">Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white border border-gray-200 p-6">
@@ -97,22 +142,23 @@ const MyAccount = () => {
         </div>
       </div>
 
-      {isEditing && (
-        <div className="mt-6 flex gap-3">
-          <button
-            onClick={() => setIsEditing(false)}
-            className="px-6 py-2 bg-pink-300 text-white font-medium hover:bg-pink-400 transition-colors"
-          >
-            Save Changes
-          </button>
-          <button
-            onClick={() => setIsEditing(false)}
-            className="px-6 py-2 border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-colors"
-          >
-            Cancel
-          </button>
-        </div>
-      )}
+       {isEditing && (
+      <div className="mt-6 flex gap-3">
+        <button
+          onClick={handleSaveChanges}  // CHANGE THIS LINE
+          className="px-6 py-2 bg-pink-300 text-white font-medium hover:bg-pink-400 transition-colors"
+        >
+          Save Changes
+        </button>
+        <button
+          onClick={() => setIsEditing(false)}
+          className="px-6 py-2 border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+        >
+          Cancel
+        </button>
+      </div>
+    )}
+  
     </div>
   );
 };

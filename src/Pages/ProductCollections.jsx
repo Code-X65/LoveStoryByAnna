@@ -1,12 +1,40 @@
 import React, { useState, useEffect } from 'react';
 import { Grid, List, ChevronDown, Filter, X, Heart, Share2, ShoppingCart } from 'lucide-react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
-import { products as allProducts, collections, priceRanges, sizeRanges, colorOptions } from '../Components/Data/productsData';
-// Update ProductCard function signature:
+import { getAllProducts, getProductsByCategory } from '../Firebase/productServices';
+import HeroSection from '../Components/HeroSection';
+import { addToCart, getUserCart, updateCartItem } from '../Firebase/cartServices';
+import { auth } from '../Firebase/Firebase';
+
+// ProductCard component (keep as is)
 const ProductCard = ({ product, onAddToCart, onToggleFavorite, favorite, colors }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
+  const [selectedColor, setSelectedColor] = useState({});
 
+  const getStockStatus = (stock) => {
+    if (stock === 0 || !stock) {
+      return { 
+        label: 'Out of Stock', 
+        bgColor: '#EF4444',
+        textColor: '#FFFFFF'
+      };
+    } else if (stock <= 5) {
+      return { 
+        label: 'Low Stock', 
+        bgColor: '#F59E0B',
+        textColor: '#FFFFFF'
+      };
+    } else {
+      return { 
+        label: 'In Stock', 
+        bgColor: '#10B981',
+        textColor: '#FFFFFF'
+      };
+    }
+  };
+
+  const stockStatus = getStockStatus(product.stock);
 
   const handleShare = (e) => {
     e.preventDefault();
@@ -18,130 +46,237 @@ const ProductCard = ({ product, onAddToCart, onToggleFavorite, favorite, colors 
     onToggleFavorite(product.id);
   };
 
-  const handleAddToCart = (e) => {
-    e.preventDefault();
-    onAddToCart(product);
-  };
+const handleAddToCart = async (product) => {
+  const user = auth.currentUser;
+  
+  if (!user) {
+    alert('Please login to add products to cart');
+    // navigate('/login'); // Uncomment if you have login page
+    return;
+  }
+
+  // Check stock
+  if (product.stock === 0) {
+    alert('This product is out of stock');
+    return;
+  }
+
+  // Get selected size and color from product (first available as default)
+  const selectedSize = product.sizes?.[0];
+  const selectedColor = product.colors?.[0];
+
+  if (!selectedSize) {
+    alert('No size available for this product');
+    return;
+  }
+
+  try {
+    // First, get the user's current cart
+    const currentCart = await getUserCart(user.uid);
+    
+    // Check if product with same ID and size already exists
+    const existingItem = currentCart.find(
+      item => item.productId === product.id && item.size === selectedSize
+    );
+
+    if (existingItem) {
+      // Product exists - update quantity instead
+      const newQuantity = existingItem.quantity + 1;
+      
+      // Check if new quantity exceeds stock
+      if (newQuantity > product.stock) {
+        alert(`Cannot add more items. Only ${product.stock} units available. You already have ${existingItem.quantity} in cart.`);
+        return;
+      }
+      
+      const result = await updateCartItem(user.uid, existingItem.cartItemId, newQuantity);
+      
+      if (result.success) {
+        // Update local cart state
+        setCart(prev => prev.map(item =>
+          item.cartItemId === existingItem.cartItemId
+            ? { ...item, quantity: newQuantity }
+            : item
+        ));
+        alert(`Cart updated! Total quantity: ${newQuantity}`);
+      } else {
+        alert('Failed to update cart: ' + result.error);
+      }
+    } else {
+      // Product doesn't exist - add new item
+      const cartProduct = {
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        images: product.images,
+        stock: product.stock,
+        category: product.category,
+        collection: product.collection,
+        brand: product.brand || '',
+        rating: product.rating || 0
+      };
+
+      const result = await addToCart(user.uid, cartProduct, selectedSize, selectedColor, 1);
+      
+      if (result.success) {
+        // Update local cart state
+        setCart(prev => [...prev, {
+          ...cartProduct,
+          size: selectedSize,
+          color: selectedColor,
+          quantity: 1,
+          cartItemId: result.cartItemId
+        }]);
+        alert('Product added to cart successfully!');
+      } else {
+        alert('Failed to add product to cart: ' + result.error);
+      }
+    }
+  } catch (error) {
+    console.error('Error handling cart:', error);
+    alert('An error occurred. Please try again.');
+  }
+};
 
   return (
-   <Link to="/details">
-    <div className="group cursor-pointer">
-      <div 
-        className="relative overflow-hidden bg-gray-100 aspect-[3/4] mb-3"
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-      >
-        <img
-          src={product.image1}
-          alt={product.name}
-          className={`w-full h-full object-cover transition-opacity duration-300 ${
-            isHovered ? 'opacity-0' : 'opacity-100'
-          }`}
-        />
-        <img
-          src={product.image2}
-          alt={product.name}
-          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
-            isHovered ? 'opacity-100' : 'opacity-0'
-          }`}
-        />
+    <Link to={`/details/${product.id}`}>
+      <div className="group cursor-pointer">
+        <div 
+          className="relative overflow-hidden bg-gray-100 aspect-[3/4] mb-3"
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+        >
+          <div 
+            className="absolute top-3 left-3 px-2 py-1 text-xs font-semibold z-10"
+            style={{ 
+              backgroundColor: stockStatus.bgColor,
+              color: stockStatus.textColor
+            }}
+          >
+            {stockStatus.label}
+          </div>
+
         
-        {/* Icons Overlay */}
-        <div className="absolute top-3 right-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+
+          <img
+            src={product.images?.[0] || ''}
+            alt={product.name}
+            className={`w-full h-full object-cover transition-opacity duration-300 ${
+              isHovered ? 'opacity-0' : 'opacity-100'
+            }`}
+          />
+          <img
+            src={product.images?.[1] || product.images?.[0] || ''}
+            alt={product.name}
+            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
+              isHovered ? 'opacity-100' : 'opacity-0'
+            }`}
+          />
+          
+          <div className="absolute top-3 right-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            <button
+              onClick={handleToggleFavorite}
+              className={`p-2 bg-white hover:bg-pink-300 hover:text-white transition-colors ${
+                favorite ? 'bg-pink-300 text-white' : ''
+              }`}
+            >
+              <Heart size={18} fill={favorite ? 'currentColor' : 'none'} />
+            </button>
+            
+            <div className="relative">
+              <button
+                onClick={handleShare}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.primary}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
+                className="p-2 bg-white hover:text-white transition-colors"
+              >
+                <Share2 size={18} />
+              </button>
+              
+              {showShareMenu && (
+                <div className="absolute right-full mr-2 top-0 bg-white border border-gray-200 p-2 flex flex-col gap-1 whitespace-nowrap z-10">
+                  <button 
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.bg}
+                    className="text-xs px-3 py-1 text-left"
+                  >
+                    Facebook
+                  </button>
+                  <button 
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.bg}
+                    className="text-xs px-3 py-1 text-left"
+                  >
+                    Twitter
+                  </button>
+                  <button 
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.bg}
+                    className="text-xs px-3 py-1 text-left"
+                  >
+                    Whatsapp
+                  </button>
+                  <button 
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.bg}
+                    className="text-xs px-3 py-1 text-left"
+                  >
+                    CopyLink
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
           <button
-            onClick={handleToggleFavorite}
-            className={`p-2 bg-white hover:bg-pink-300 hover:text-white transition-colors ${
-              favorite ? 'bg-pink-300 text-white' : ''
+            onClick={handleAddToCart}
+            disabled={product.stock === 0}
+            onMouseEnter={(e) => !e.currentTarget.disabled && (e.currentTarget.style.backgroundColor = colors.hover)}
+            onMouseLeave={(e) => !e.currentTarget.disabled && (e.currentTarget.style.backgroundColor = colors.primary)}
+            style={{ backgroundColor: product.stock === 0 ? '#9CA3AF' : colors.primary }}
+            className={`absolute bottom-0 left-0 right-0 text-white py-3 text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-2 ${
+              product.stock === 0 ? 'cursor-not-allowed' : ''
             }`}
           >
-            <Heart size={18} fill={favorite ? 'currentColor' : 'none'} />
+            <ShoppingCart size={18} />
+            {product.stock === 0 ? 'OUT OF STOCK' : 'ADD TO CART'}
           </button>
+        </div>
+        
+        <div className="text-center px-2">
+          <h3 className="text-lg font-semibold text-gray-800 uppercase mb-1 tracking-wide">
+            {product.name}
+          </h3>
+          <p className="text-xs text-gray-500 mb-2">({product.variants})</p>
           
-          <div className="relative">
-            <button
-  onClick={handleShare}
-  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.primary}
-  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
-  className="p-2 bg-white hover:text-white transition-colors"
->
-  <Share2 size={18} />
-</button>
-            
-       
-
-            {showShareMenu && (
-  <div className="absolute right-full mr-2 top-0 bg-white border border-gray-200 p-2 flex flex-col gap-1 whitespace-nowrap z-10">
-    <button 
-      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.bg}
-      className="text-xs px-3 py-1 text-left"
-    >
-      Facebook
-    </button>
-    <button 
-      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.bg}
-      className="text-xs px-3 py-1 text-left"
-    >
-      Twitter
-    </button>
-    <button 
-      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.bg}
-      className="text-xs px-3 py-1 text-left"
-    >
-      Whatsapp
-    </button>
-    <button 
-      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.bg}
-      className="text-xs px-3 py-1 text-left"
-    >
-      CopyLink
-    </button>
-    {/* Repeat for other buttons */}
-  </div>
-)}
+          <div className="flex items-center justify-center gap-1 mb-1">
+            {[...Array(5)].map((_, i) => (
+              <span key={i} style={{ color: i < product.rating ? colors.primary : '#D1D5DB' }} className="text-xs">★</span>
+            ))}
+            <span className="text-xs text-gray-500 ml-1">{product.reviews} REVIEWS</span>
           </div>
-        </div>
+          
+          <p className="text-md font-semibold text-gray-800">
+            ₦{product.price.toLocaleString()}
+          </p>
 
-
-<button
-  onClick={handleAddToCart}
-  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.hover}
-  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = colors.primary}
-  style={{ backgroundColor: colors.primary }}
-  className="absolute bottom-0 left-0 right-0 text-white py-3 text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-2"
->
-  <ShoppingCart size={18} />
-  ADD TO CART
-</button>
-      </div>
-      
-      <div className="text-center px-2">
-        <h3 className="text-sm font-medium text-gray-800 uppercase mb-1 tracking-wide">
-          {product.name}
-        </h3>
-        <p className="text-xs text-gray-500 mb-2">({product.variants})</p>
-        
-        <div className="flex items-center justify-center gap-1 mb-1">
-          {[...Array(5)].map((_, i) => (
-           <span key={i} style={{ color: i < product.rating ? colors.primary : '#D1D5DB' }} className="text-xs">★</span>
-          ))}
-          <span className="text-xs text-gray-500 ml-1">{product.reviews} REVIEWS</span>
+          <p className="text-xs text-gray-500 mt-1">
+            {product.stock > 0 && product.stock <= 5 
+              ? `Only ${product.stock} left!` 
+              : product.stock === 0 
+                ? 'Out of stock' 
+                : `${product.stock} available`
+            }
+          </p>
         </div>
-        
-        <p className="text-sm font-semibold text-gray-800">
-          FROM ₦{product.price.toLocaleString()}
-        </p>
       </div>
-    </div>
     </Link>
   );
 };
 
 const ProductCollections = () => {
-    const [searchParams, setSearchParams] = useSearchParams();
-    const category = searchParams.get('category') || 'GIRLS';
-const title = searchParams.get('collection') || `${category} COLLECTION`;
-
-const navigate = useNavigate();
+  
+  const [allProducts, setAllProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const category = searchParams.get('category') || 'GIRLS';
+  const navigate = useNavigate();
   const [viewMode, setViewMode] = useState('grid');
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [sortBy, setSortBy] = useState('featured');
@@ -162,62 +297,145 @@ const navigate = useNavigate();
     color: []
   });
 
-// Defin Color Sheme
-const colorSchemes = {
-  GIRLS: {
-    primary: '#EC4899', // pink-300
-    hover: '#F472B6',   // pink-400
-    bg: '#FCE7F3'       // pink-50
-  },
-  BOYS: {
-    primary: '#3B82F6', // blue-500
-    hover: '#60A5FA',   // blue-400
-    bg: '#EFF6FF'       // blue-50
-  },
-  BABY: {
-    primary: '#A855F7', // purple-500
-    hover: '#C084FC',   // purple-400
-    bg: '#FAF5FF'       // purple-50
-  },
-  DEFAULT: {
-    primary: '#EC4899',
-    hover: '#F472B6',
-    bg: '#FCE7F3'
-  }
-};
+  // ADD THESE CONSTANT ARRAYS HERE:
+  const priceRanges = [
+    { label: "Under ₦20,000" },
+    { label: "₦20,000 - ₦40,000" },
+    { label: "₦40,000 - ₦60,000" },
+    { label: "₦60,000 - ₦80,000" },
+    { label: "Over ₦80,000" }
+  ];
 
+  const sizeRanges = [
+    { label: "0-6 MTH" },
+    { label: "6-12 MTH" },
+    { label: "1-2 YEARS" },
+    { label: "2-4 YEARS" },
+    { label: "4-6 YEARS" },
+    { label: "6-8 YEARS" },
+    { label: "8-10 YEARS" },
+    { label: "10-12 YEARS" }
+  ];
 
+  const colorOptions = [
+    { label: "Pink", hex: "#EC4899" },
+    { label: "Purple", hex: "#A855F7" },
+    { label: "Blue", hex: "#3B82F6" },
+    { label: "Red", hex: "#EF4444" },
+    { label: "Yellow", hex: "#F59E0B" },
+    { label: "Green", hex: "#10B981" },
+    { label: "White", hex: "#FFFFFF" },
+    { label: "Black", hex: "#000000" },
+    { label: "Multi-Color", hex: "linear-gradient(45deg, #EC4899, #3B82F6, #10B981, #F59E0B)" }
+  ];
 
+  // Define Color Scheme
+  const colorSchemes = {
+    GIRLS: {
+      primary: '#EC4899',
+      hover: '#F472B6',
+      bg: '#FCE7F3'
+    },
+    // ... rest of your code
+    BOYS: {
+      primary: '#3B82F6',
+      hover: '#60A5FA',
+      bg: '#EFF6FF'
+    },
+    BABY: {
+      primary: '#A855F7',
+      hover: '#C084FC',
+      bg: '#FAF5FF'
+    },
+    DEFAULT: {
+      primary: '#EC4899',
+      hover: '#F472B6',
+      bg: '#FCE7F3'
+    }
+  };
 
+  // Get collections by category
+  const getCollectionsByCategory = (category, products = []) => {
+    const collectionsMap = {
+      'GIRLS': [
+        { name: 'TWO-PIECE SETS', subcategories: ['CORD SETS', 'MATCHING TOP & BOTTOM'] },
+        { name: 'DRESSES', subcategories: ['CASUAL DRESSES', 'SPECIAL OCCASION DRESSES'] },
+        { name: 'TOPS', subcategories: ['T-SHIRTS', 'BLOUSES', 'JACKETS'] },
+        { name: 'BOTTOMS', subcategories: ['SHORTS', 'JEANS', 'TROUSERS'] },
+        { name: 'FOOTWEAR', subcategories: [] },
+        { name: 'OTHERS', subcategories: [] }
+      ],
+      'BOYS': [
+        { name: 'TWO-PIECE SETS', subcategories: ['CORD SETS', 'MATCHING TOP & BOTTOM'] },
+        { name: 'TOPS', subcategories: ['T-SHIRTS', 'SHIRTS', 'JACKETS'] },
+        { name: 'BOTTOMS', subcategories: ['SHORTS', 'JEANS', 'TROUSERS'] },
+        { name: 'FOOTWEAR', subcategories: [] },
+        { name: 'OTHERS', subcategories: [] }
+      ],
+      'BABY': [
+        { name: 'BABY GIRL', subcategories: ['TWO-PIECE SETS', 'DRESSES'] },
+        { name: 'BABY BOY', subcategories: ['TWO-PIECE SETS'] },
+        { name: 'FOOTWEAR', subcategories: [] }
+      ],
+      'NEW ARRIVALS': [
+        { name: 'LATEST COLLECTION', subcategories: [] },
+        { name: 'BEST SELLERS', subcategories: [] }
+      ],
+      'ACCESSORIES': [
+        { name: 'HAIR ACCESSORIES', subcategories: [] },
+        { name: 'FASHION ACCESSORIES', subcategories: [] }
+      ],
+      'FOOTWEAR': [
+        { name: 'BABY SHOES', subcategories: [] },
+        { name: 'KIDS SHOES', subcategories: [] }
+      ]
+    };
 
-
-
-
-
-
-
-// Update handleFilterChange function to update URL:
-const handleFilterChange = (filterType, value) => {
-  setSelectedFilters(prev => {
-    const currentFilters = prev[filterType];
-    const newFilters = currentFilters.includes(value)
-      ? currentFilters.filter(item => item !== value)
-      : [...currentFilters, value];
+    const collections = collectionsMap[category] || [];
     
-    const updatedFilters = { ...prev, [filterType]: newFilters };
-    
-    // Update URL
-    const params = new URLSearchParams();
-    Object.entries(updatedFilters).forEach(([key, values]) => {
-      if (values.length > 0) {
-        params.set(key, values.join(','));
-      }
+    return collections.map(collection => ({
+      ...collection,
+      count: products.filter(p => p.collection === collection.name).length
+    }));
+  };
+
+  const getCategoryTitle = () => {
+    const categoryTitles = {
+      'GIRLS': 'Girls Collection',
+      'BOYS': 'Boys Collection',
+      'BABY': 'Baby Collection',
+      'NEW ARRIVALS': 'New Arrivals',
+      'ACCESSORIES': 'Accessories',
+      'FOOTWEAR': 'Footwear'
+    };
+    return categoryTitles[category] || 'Girls Collection';
+  };
+
+  const title = getCategoryTitle();
+
+  const handleFilterChange = (filterType, value) => {
+    setSelectedFilters(prev => {
+      const currentFilters = prev[filterType];
+      const newFilters = currentFilters.includes(value)
+        ? currentFilters.filter(item => item !== value)
+        : [...currentFilters, value];
+      
+      const updatedFilters = { ...prev, [filterType]: newFilters };
+      
+      const params = new URLSearchParams(searchParams);
+      if (category) params.set('category', category);
+      Object.entries(updatedFilters).forEach(([key, values]) => {
+        if (values.length > 0) {
+          params.set(key, values.join(','));
+        } else {
+          params.delete(key);
+        }
+      });
+      setSearchParams(params);
+      
+      return updatedFilters;
     });
-    setSearchParams(params);
-    
-    return updatedFilters;
-  });
-};
+  };
 
   const handleSort = (option) => {
     setSortBy(option);
@@ -246,56 +464,47 @@ const handleFilterChange = (filterType, value) => {
     });
   };
 
-const filteredProducts = allProducts.filter(product => {
-  // Filter by category
-  if (category && product.category !== category) {
-    return false;
-  }
-  
-  // Filter by collection
-  if (selectedFilters.collection.length > 0) {
-    if (!selectedFilters.collection.includes(product.collection)) {
-      return false;
+  const filteredProducts = allProducts.filter(product => {
+    if (selectedFilters.collection.length > 0) {
+      if (!selectedFilters.collection.includes(product.collection)) {
+        return false;
+      }
     }
-  }
-  
-  // Filter by subcategory
-  if (selectedFilters.subcategory.length > 0) {
-    if (!selectedFilters.subcategory.includes(product.subcategory)) {
-      return false;
+    
+    if (selectedFilters.subcategory.length > 0) {
+      if (!selectedFilters.subcategory.includes(product.subcategory)) {
+        return false;
+      }
     }
-  }
-  
-  // Filter by price
-  if (selectedFilters.price.length > 0) {
-    const matchesPrice = selectedFilters.price.some(range => {
-      if (range === "Under ₦20,000") return product.price < 20000;
-      if (range === "₦20,000 - ₦40,000") return product.price >= 20000 && product.price < 40000;
-      if (range === "₦40,000 - ₦60,000") return product.price >= 40000 && product.price < 60000;
-      if (range === "₦60,000 - ₦80,000") return product.price >= 60000 && product.price < 80000;
-      return false;
-    });
-    if (!matchesPrice) return false;
-  }
-  
-  // Filter by size
-  if (selectedFilters.size.length > 0) {
-    const matchesSize = selectedFilters.size.some(size => 
-      product.sizes.includes(size)
-    );
-    if (!matchesSize) return false;
-  }
-  
-  // Filter by color
-  if (selectedFilters.color.length > 0) {
-    const matchesColor = selectedFilters.color.some(color => 
-      product.colors.includes(color)
-    );
-    if (!matchesColor) return false;
-  }
-  
-  return true;
-});
+    
+    if (selectedFilters.price.length > 0) {
+      const matchesPrice = selectedFilters.price.some(range => {
+        if (range === "Under ₦20,000") return product.price < 20000;
+        if (range === "₦20,000 - ₦40,000") return product.price >= 20000 && product.price < 40000;
+        if (range === "₦40,000 - ₦60,000") return product.price >= 40000 && product.price < 60000;
+        if (range === "₦60,000 - ₦80,000") return product.price >= 60000 && product.price < 80000;
+        if (range === "Over ₦80,000") return product.price >= 80000;
+        return false;
+      });
+      if (!matchesPrice) return false;
+    }
+    
+    if (selectedFilters.size.length > 0) {
+      const matchesSize = selectedFilters.size.some(size => 
+        product.sizes?.includes(size)
+      );
+      if (!matchesSize) return false;
+    }
+    
+    if (selectedFilters.color.length > 0) {
+      const matchesColor = selectedFilters.color.some(color => 
+        product.colors?.includes(color)
+      );
+      if (!matchesColor) return false;
+    }
+    
+    return true;
+  });
 
   const sortedProducts = [...filteredProducts].sort((a, b) => {
     if (sortBy === 'price-low') return a.price - b.price;
@@ -307,48 +516,137 @@ const filteredProducts = allProducts.filter(product => {
 
   const totalCartItems = cart.reduce((sum, item) => sum + item.quantity, 0);
 
-  // Update clear all filters to clear URL:
-const clearAllFilters = () => {
-  setSelectedFilters({ collection: [], subcategory: [], price: [], size: [], color: [] });
-  setSearchParams(new URLSearchParams());
-};
+  const clearAllFilters = () => {
+    setSelectedFilters({ collection: [], subcategory: [], price: [], size: [], color: [] });
+    const params = new URLSearchParams();
+    if (category) {
+      params.set('category', category);
+    }
+    setSearchParams(params);
+  };
 
-const colors = colorSchemes[category] || colorSchemes.DEFAULT;
+  const colors = colorSchemes[category] || colorSchemes.DEFAULT;
+  const collections = getCollectionsByCategory(category, allProducts);
 
+  // Calculate filter counts
+  const calculateFilterCounts = () => {
+    const priceRanges = [
+      { label: "Under ₦20,000", count: 0 },
+      { label: "₦20,000 - ₦40,000", count: 0 },
+      { label: "₦40,000 - ₦60,000", count: 0 },
+      { label: "₦60,000 - ₦80,000", count: 0 },
+      { label: "Over ₦80,000", count: 0 }
+    ];
+
+    const sizeRanges = [
+      { label: "0-6 MTH", count: 0 },
+      { label: "6-12 MTH", count: 0 },
+      { label: "1-2 YEARS", count: 0 },
+      { label: "2-4 YEARS", count: 0 },
+      { label: "4-6 YEARS", count: 0 },
+      { label: "6-8 YEARS", count: 0 },
+      { label: "8-10 YEARS", count: 0 },
+      { label: "10-12 YEARS", count: 0 }
+    ];
+
+    const colorOptions = [
+      { label: "Pink", hex: "#EC4899", count: 0 },
+      { label: "Purple", hex: "#A855F7", count: 0 },
+      { label: "Blue", hex: "#3B82F6", count: 0 },
+      { label: "Red", hex: "#EF4444", count: 0 },
+      { label: "Yellow", hex: "#F59E0B", count: 0 },
+      { label: "Green", hex: "#10B981", count: 0 },
+      { label: "White", hex: "#FFFFFF", count: 0 },
+      { label: "Black", hex: "#000000", count: 0 },
+      { label: "Multi-Color", hex: "linear-gradient(45deg, #EC4899, #3B82F6, #10B981, #F59E0B)", count: 0 }
+    ];
+
+    const updatedPriceRanges = priceRanges.map(range => ({
+      ...range,
+      count: allProducts.filter(p => {
+        if (range.label === "Under ₦20,000") return p.price < 20000;
+        if (range.label === "₦20,000 - ₦40,000") return p.price >= 20000 && p.price < 40000;
+        if (range.label === "₦40,000 - ₦60,000") return p.price >= 40000 && p.price < 60000;
+        if (range.label === "₦60,000 - ₦80,000") return p.price >= 60000 && p.price < 80000;
+        if (range.label === "Over ₦80,000") return p.price >= 80000;
+        return false;
+      }).length
+    }));
+
+    const updatedSizeRanges = sizeRanges.map(size => ({
+      ...size,
+      count: allProducts.filter(p => p.sizes?.includes(size.label)).length
+    }));
+
+    const updatedColorOptions = colorOptions.map(color => ({
+      ...color,
+      count: allProducts.filter(p => p.colors?.includes(color.label)).length
+    }));
+
+    return { updatedPriceRanges, updatedSizeRanges, updatedColorOptions };
+  };
+
+  const { updatedPriceRanges, updatedSizeRanges, updatedColorOptions } = calculateFilterCounts();
 
   // Initialize filters from URL on mount
-useEffect(() => {
-  const collection = searchParams.get('collection');
-  const category = searchParams.get('category');
-  const subcategory = searchParams.get('subcategory');
-  const priceRange = searchParams.get('price');
-  const size = searchParams.get('size');
-  const color = searchParams.get('color');
-  
-  const newFilters = {
-    collection: collection ? collection.split(',') : [],
-    subcategory: subcategory ? subcategory.split(',') : [],
-    price: priceRange ? priceRange.split(',') : [],
-    size: size ? size.split(',') : [],
-    color: color ? color.split(',') : []
-  };
-  
-  setSelectedFilters(newFilters);
-}, []);
+  useEffect(() => {
+    const collection = searchParams.get('collection');
+    const subcategory = searchParams.get('subcategory');
+    const priceRange = searchParams.get('price');
+    const size = searchParams.get('size');
+    const color = searchParams.get('color');
+    
+    const newFilters = {
+      collection: collection ? collection.split(',') : [],
+      subcategory: subcategory ? subcategory.split(',') : [],
+      price: priceRange ? priceRange.split(',') : [],
+      size: size ? size.split(',') : [],
+      color: color ? color.split(',') : []
+    };
+    
+    setSelectedFilters(newFilters);
+  }, [searchParams]);
 
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setLoading(true);
+        const data = category 
+          ? await getProductsByCategory(category)
+          : await getAllProducts();
+        setAllProducts(data);
+      } catch (error) {
+        console.error('Error fetching products:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, [category]);
+
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-white">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 mx-auto mb-4" style={{ borderColor: colors.primary }}></div>
+          <p className="text-gray-600">Loading products...</p>
+        </div>
+      </div>
+    );
+  }
 return (
   <div className="h-screen flex flex-col bg-white overflow-hidden">
+     <HeroSection category={category} colors={colors} />
     {/* Header */}
-    <header className="border-b border-gray-200 bg-white flex-shrink-0">
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <h1 className="text-2xl md:text-3xl font-light text-center tracking-wider text-gray-800">
-          {title.toUpperCase()}
-        </h1>
-        <p className="text-center text-sm text-gray-500 mt-2">
-          {sortedProducts.length} Products
-        </p>
-      </div>
-    </header>
+  {/* You can reduce header size or remove it entirely since hero has the title */}
+<header className="border-b border-gray-200 bg-white flex-shrink-0">
+  <div className="max-w-7xl mx-auto px-4 py-4">
+    <p className="text-center text-sm text-gray-500">
+      {sortedProducts.length} Products Available
+    </p>
+  </div>
+</header>
 
     {/* Toolbar */}
     <div className="border-b border-gray-200 bg-white flex-shrink-0">
@@ -703,25 +1001,61 @@ return (
             </div>
           </aside>
 
-          {/* Products Grid */}
-          <main className="flex-1 overflow-y-scroll scrollbar-hide h-full py-8">
-            <div className={`grid gap-6 ${
-              viewMode === 'grid-large' 
-                ? 'grid-cols-2 md:grid-cols-3' 
-                : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
-            }`}>
-              {sortedProducts.map((product) => (
-                <ProductCard 
-                  key={product.id} 
-                  product={product}
-                  colors={colors}
-                  onAddToCart={handleAddToCart}
-                  onToggleFavorite={handleToggleFavorite}
-                  favorite={favorites.includes(product.id)}
-                />
-              ))}
-            </div>
-          </main>
+     {/* Products Grid */}
+<main className="flex-1 overflow-y-scroll scrollbar-hide h-full py-8">
+  {sortedProducts.length === 0 ? (
+    <div className="flex flex-col items-center justify-center h-full py-20">
+      <div className="text-center">
+        <svg 
+          className="mx-auto h-24 w-24 text-gray-300 mb-4" 
+          fill="none" 
+          viewBox="0 0 24 24" 
+          stroke="currentColor"
+        >
+          <path 
+            strokeLinecap="round" 
+            strokeLinejoin="round" 
+            strokeWidth={1.5} 
+            d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" 
+          />
+        </svg>
+        <h3 className="text-xl font-semibold text-gray-700 mb-2">
+          No Products Found
+        </h3>
+        <p className="text-gray-500 mb-6 max-w-md">
+          We couldn't find any products matching your filters. Try adjusting your search criteria.
+        </p>
+        <button
+          onClick={clearAllFilters}
+          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.hover}
+          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = colors.primary}
+          style={{ backgroundColor: colors.primary }}
+          className="px-6 py-3 text-white font-semibold rounded-lg transition-colors inline-flex items-center gap-2"
+        >
+          <X size={18} />
+          Clear All Filters
+        </button>
+      </div>
+    </div>
+  ) : (
+    <div className={`grid gap-6 ${
+      viewMode === 'grid-large' 
+        ? 'grid-cols-2 md:grid-cols-3' 
+        : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
+    }`}>
+      {sortedProducts.map((product) => (
+        <ProductCard 
+          key={product.id} 
+          product={product}
+          colors={colors}
+          onAddToCart={handleAddToCart}
+          onToggleFavorite={handleToggleFavorite}
+          favorite={favorites.includes(product.id)}
+        />
+      ))}
+    </div>
+  )}
+</main>
         </div>
       </div>
     </div>

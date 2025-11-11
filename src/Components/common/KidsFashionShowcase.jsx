@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import Male from '../../assets/male.jpg'
 import female from '../../assets/females.jpg'
 import baby from '../../assets/babys.jpg'
+import { href, Link } from 'react-router-dom';
 
 
 const KidsFashionShowcase = () => {
@@ -23,17 +24,20 @@ const KidsFashionShowcase = () => {
     {
       bg: 'bg-cyan-400',
       title: 'SHOP LADIES GOWN',
-      image: female
+      image: female,
+      href: '/collections?category=GIRLS'
     },
     {
       bg: 'bg-amber-300',
       title: 'SHOP UP BOYS DOWN',
-      image: Male
+      image: Male,
+      href: '/collections?category=BOYS'
     },
     {
       bg: 'bg-orange-400',
       title: 'SHOP BABIS WEAR',
-      image: baby
+      image: baby,
+      href: '/collections?category=BABY'
     }
   ];
 
@@ -60,7 +64,8 @@ const KidsFashionShowcase = () => {
           style={{ transform: `translateX(-${currentSlide * 100}%)` }}
         >
           {slides.map((slide, index) => (
-            <div
+       
+             <div
               key={index}
               className={`min-w-full h-full ${slide.bg} flex items-center justify-center relative`}
             >
@@ -69,10 +74,12 @@ const KidsFashionShowcase = () => {
                 alt={slide.title}
                 className="w-full h-full object-cover"
               />
-              <button className="absolute bottom-20 left-1/2 transform -translate-x-1/2 bg-white text-gray-900 px-8 py-3 font-semibold text-sm tracking-wider hover:bg-gray-100 transition-colors">
+             <Link to={slide.href}> <button className="absolute bottom-20 left-1/2 transform -translate-x-1/2 bg-white text-gray-900 px-8 py-3 font-semibold text-sm tracking-wider hover:bg-gray-100 transition-colors">
                 {slide.title}
               </button>
+                </Link>
             </div>
+          
           ))}
         </div>
 
@@ -109,7 +116,8 @@ const KidsFashionShowcase = () => {
   return (
     <div className=" grid grid-cols-3 h-screen">
       {slides.map((slide, index) => (
-        <div
+      
+          <div
           key={index}
           className={`${slide.bg} flex items-center justify-center relative overflow-hidden group cursor-pointer`}
         >
@@ -119,10 +127,12 @@ const KidsFashionShowcase = () => {
             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
           />
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all duration-300" />
-          <button className="absolute bottom-20 left-1/2 transform -translate-x-1/2 bg-white text-gray-900 px-8 py-3 font-semibold text-sm tracking-wider hover:bg-gray-100 transition-all hover:scale-105 shadow-lg">
+        <Link to={slide.href}>  <button className="absolute bottom-20 left-1/2 transform -translate-x-1/2 bg-white text-gray-900 px-8 py-3 font-semibold text-sm tracking-wider hover:bg-gray-100 transition-all hover:scale-105 shadow-lg">
             {slide.title}
           </button>
+            </Link>
         </div>
+      
       ))}
     </div>
   );

@@ -12,6 +12,7 @@ import img15 from '../../assets/trending/img15.jpg'
 import img06 from '../../assets/trending/img06.jpg'
 import img16 from '../../assets/trending/img16.jpg'
 import img07 from '../../assets/trending/img07.jpg'
+import { Link } from 'react-router-dom';
 const girlsProducts = [
   {
     id: 1,
@@ -286,9 +287,10 @@ export default function DenimFeverSection() {
 
         {/* View All Button */}
         <div className="text-center mt-12">
-          <button className="bg-pink-500 hover:bg-pink-600 text-white px-8 py-3 rounded-lg font-bold uppercase tracking-wide transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl">
+         <Link to="/Denim"> <button className="bg-pink-500 hover:bg-pink-600 text-white px-8 py-3 rounded-lg font-bold uppercase tracking-wide transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl">
             View All Denim Collection
           </button>
+          </Link>
         </div>
       </div>
     </div>

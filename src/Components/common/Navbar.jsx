@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { gsap } from 'gsap';
 import { useAuth } from '../../Firebase/AuthContext';
 import { logout } from '../../Firebase/auth';
-
+import { searchProducts } from '../../Firebase/productServices';
 const Navbar = () => {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
@@ -24,16 +24,7 @@ const Navbar = () => {
   const topBannerRef = useRef(null);
   const userDropdownRef = useRef(null);
 
-  const searchData = [
-    { id: 1, name: "Special Occasion Dresses", category: "Girls - Dresses", price: 45.99 },
-    { id: 2, name: "Girls T-Shirts", category: "Girls - Tops", price: 19.99 },
-    { id: 3, name: "Girls Blouses", category: "Girls - Tops", price: 24.99 },
-    { id: 4, name: "Girls Jackets", category: "Girls - Tops", price: 52.99 },
-    { id: 5, name: "Girls Denims", category: "Girls - Tops", price: 34.99 },
-    { id: 6, name: "Boys T-Shirts", category: "Boys - Tops", price: 19.99 },
-    { id: 7, name: "Boys Shorts", category: "Boys - Bottoms", price: 24.99 },
-    { id: 8, name: "Boys Jeans", category: "Boys - Bottoms", price: 32.99 },
-  ];
+
 
   const menuStructure = {
     'NEW ARRIVALS': [
@@ -130,24 +121,30 @@ const Navbar = () => {
     }
   };
 
-  const handleSearch = (e) => {
-    const query = e.target.value;
-    setSearchQuery(query);
-    
-    if (query.trim() === '') {
-      setSearchResults([]);
-      setShowResults(false);
-      return;
-    }
-    
-    const filtered = searchData.filter(item =>
-      item.name.toLowerCase().includes(query.toLowerCase()) ||
-      item.category.toLowerCase().includes(query.toLowerCase())
-    );
-    
-    setSearchResults(filtered);
+// Remove this static array:
+// const searchData = [...]
+
+// Replace handleSearch function:
+const handleSearch = async (e) => {
+  const query = e.target.value;
+  setSearchQuery(query);
+  
+  if (query.trim() === '') {
+    setSearchResults([]);
+    setShowResults(false);
+    return;
+  }
+  
+  try {
+    const results = await searchProducts(query);
+    setSearchResults(results);
     setShowResults(true);
-  };
+  } catch (error) {
+    console.error('Search error:', error);
+    setSearchResults([]);
+    setShowResults(false);
+  }
+};
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -330,26 +327,58 @@ return (
               />
               <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 z-[10003]" />
               
-              {showResults && searchResults.length > 0 && (
-                <div className="fixed left-1/2 transform -translate-x-1/2 mt-2 w-full max-w-[500px] bg-white rounded-lg shadow-2xl max-h-96 overflow-y-auto z-[10003] border border-gray-200">
-                  {searchResults.map((item) => (
-                    <div
-                      key={item.id}
-                      className="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors"
-                    >
-                      <div className="font-medium text-gray-800">{item.name}</div>
-                      <div className="text-sm text-gray-500">{item.category}</div>
-                      <div className="text-pink-300 font-semibold mt-1">₦{item.price}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
+            {showResults && searchResults.length > 0 && (
+  <div className="fixed left-1/2 transform -translate-x-1/2 mt-2 w-full max-w-[500px] bg-white rounded-lg shadow-2xl max-h-96 overflow-y-auto z-[10003] border border-gray-200">
+    {searchResults.map((item) => (
+      <Link
+        key={item.id}
+        to={`/details/${item.id}`}
+        onClick={() => {
+          setIsSearchOpen(false);
+          setSearchQuery('');
+          setShowResults(false);
+        }}
+        className="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors block"
+      >
+        <div className="flex gap-3">
+          <img src={item.images?.[0]} alt={item.name} className="w-12 h-12 object-cover" />
+          <div className="flex-1">
+            <div className="font-medium text-gray-800">{item.name}</div>
+            <div className="text-sm text-gray-500">{item.category} - {item.collection}</div>
+            <div className="text-pink-300 font-semibold mt-1">₦{item.price.toLocaleString()}</div>
+          </div>
+        </div>
+      </Link>
+    ))}
+  </div>
+)}
+
               
-              {showResults && searchResults.length === 0 && searchQuery.trim() !== '' && (
-                <div className="fixed left-1/2 transform -translate-x-1/2 mt-2 w-full max-w-[500px] bg-white rounded-lg shadow-2xl p-4 z-[10003] border border-gray-200">
-                  <p className="text-gray-500 text-center">No products found</p>
-                </div>
-              )}
+            {showResults && searchResults.length > 0 && (
+  <div className="absolute top-full mt-2 w-full bg-white rounded-lg shadow-2xl max-h-64 overflow-y-auto z-[10000] border border-gray-200">
+    {searchResults.map((item) => (
+      <Link
+        key={item.id}
+        to={`/details/${item.id}`}
+        onClick={() => {
+          setIsMobileMenuOpen(false);
+          setSearchQuery('');
+          setShowResults(false);
+        }}
+        className="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors block"
+      >
+        <div className="flex gap-3">
+          <img src={item.images?.[0]} alt={item.name} className="w-12 h-12 object-cover" />
+          <div className="flex-1">
+            <div className="font-medium text-gray-800">{item.name}</div>
+            <div className="text-sm text-gray-500">{item.category} - {item.collection}</div>
+            <div className="text-pink-300 font-semibold mt-1">₦{item.price.toLocaleString()}</div>
+          </div>
+        </div>
+      </Link>
+    ))}
+  </div>
+)}
             </div>
           </div>
         )}

@@ -1,62 +1,73 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Trash2, Plus, Minus, ShoppingBag, ArrowRight, Heart, Tag } from 'lucide-react';
 import { Link } from 'react-router-dom';
-
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '../Firebase/Firebase';
+import { getUserCart, updateCartItem, removeFromCart } from '../Firebase/cartServices';
+import { addToWishlist } from '../Firebase/wishlistServices';
 const CartPage = () => {
-  const [cartItems, setCartItems] = useState([
-    {
-      id: 1,
-      name: "Boys Blue Ankara Short Sleeve Shirt",
-      image: "https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?w=400&h=500&fit=crop",
-      price: 37950,
-      quantity: 1,
-      size: "2 YEARS",
-      color: "Blue",
-      inStock: true
-    },
-    {
-      id: 2,
-      name: "Girls Red Ankara Dress",
-      image: "https://images.unsplash.com/photo-1519058082700-08a0b56da9b4?w=400&h=500&fit=crop",
-      price: 45000,
-      quantity: 2,
-      size: "3 YEARS",
-      color: "Red",
-      inStock: true
-    },
-    {
-      id: 3,
-      name: "Kids Traditional Print Shirt",
-      image: "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=400&h=500&fit=crop",
-      price: 33500,
-      quantity: 1,
-      size: "4 YEARS",
-      color: "Green",
-      inStock: false
-    }
-  ]);
+const [cartItems, setCartItems] = useState([]);
+const [userId, setUserId] = useState(null);
+const [loading, setLoading] = useState(true);
 
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState(null);
 
-  const updateQuantity = (id, action) => {
-    setCartItems(cartItems.map(item => {
-      if (item.id === id) {
-        const newQuantity = action === 'increment' ? item.quantity + 1 : Math.max(1, item.quantity - 1);
-        return { ...item, quantity: newQuantity };
-      }
-      return item;
-    }));
-  };
+const updateQuantity = async (cartItemId, action) => {
+  const item = cartItems.find(item => item.cartItemId === cartItemId);
+  if (!item) return;
+  
+  const newQuantity = action === 'increment' ? item.quantity + 1 : Math.max(1, item.quantity - 1);
+  
+  await updateCartItem(userId, cartItemId, newQuantity);
+  
+  setCartItems(cartItems.map(item => {
+    if (item.cartItemId === cartItemId) {
+      return { ...item, quantity: newQuantity };
+    }
+    return item;
+  }));
+};
 
-  const removeItem = (id) => {
-    setCartItems(cartItems.filter(item => item.id !== id));
-  };
+const removeItem = async (cartItemId) => {
+  await removeFromCart(userId, cartItemId);
+  setCartItems(cartItems.filter(item => item.cartItemId !== cartItemId));
+};
 
-  const moveToWishlist = (id) => {
-    // Handle move to wishlist logic
-    removeItem(id);
-  };
+const moveToWishlist = async (cartItemId) => {
+  const item = cartItems.find(item => item.cartItemId === cartItemId);
+  if (!item) return;
+  
+  try {
+    // Prepare product data for wishlist
+    const productData = {
+      id: item.productId,
+      name: item.name,
+      price: item.price,
+      originalPrice: item.originalPrice || item.price, // Use original price if available
+      discount: item.discount || 0,
+      images: [item.image],
+      brand: item.brand || '',
+      rating: item.rating || 0,
+      stock: item.stock || 0
+    };
+    
+    // Add to wishlist
+    const result = await addToWishlist(userId, productData);
+    
+    if (result.success) {
+      // Remove from cart after successfully adding to wishlist
+      await removeFromCart(userId, cartItemId);
+      setCartItems(cartItems.filter(item => item.cartItemId !== cartItemId));
+      alert('Item moved to wishlist!');
+    } else {
+      alert(result.error || 'Failed to move item to wishlist');
+    }
+  } catch (error) {
+    console.error('Error moving to wishlist:', error);
+    alert('Failed to move item to wishlist');
+  }
+};
 
   const applyCoupon = () => {
     if (couponCode.toUpperCase() === 'SAVE10') {
@@ -77,7 +88,39 @@ const CartPage = () => {
   const discount = appliedCoupon ? (subtotal * appliedCoupon.discount / 100) : 0;
   const shipping = subtotal > 50000 ? 0 : 2500;
   const total = subtotal - discount + shipping;
+  useEffect(() => {
+  const unsubscribe = onAuthStateChanged(auth, (user) => {
+    if (user) {
+      setUserId(user.uid);
+    } else {
+      setUserId(null);
+      setCartItems([]);
+      setLoading(false);
+    }
+  });
 
+  return () => unsubscribe();
+}, []);
+
+useEffect(() => {
+  const fetchCart = async () => {
+    if (userId) {
+      setLoading(true);
+      const items = await getUserCart(userId);
+      setCartItems(items);
+      setLoading(false);
+    }
+  };
+  
+  fetchCart();
+}, [userId]);
+if (loading) {
+  return (
+    <div className="min-h-screen bg-white flex items-center justify-center">
+      <p className="text-gray-600">Loading cart...</p>
+    </div>
+  );
+}
   return (
     <div className="min-h-screen bg-white">
       <div className="max-w-7xl mx-auto px-4 py-8">
@@ -108,8 +151,8 @@ const CartPage = () => {
           <div className="grid lg:grid-cols-3 gap-8">
             {/* Cart Items */}
             <div className="lg:col-span-2 space-y-4">
-              {cartItems.map((item) => (
-                <div key={item.id} className="border border-gray-200 p-4 bg-white">
+             {cartItems.map((item) => (
+  <div key={item.cartItemId} className="border border-gray-200 p-4 bg-white">
                   <div className="flex gap-4">
                     {/* Product Image */}
                     <div className="flex-shrink-0">
@@ -154,7 +197,7 @@ const CartPage = () => {
                         {/* Quantity Selector */}
                         <div className="flex items-center border border-gray-300">
                           <button
-                            onClick={() => updateQuantity(item.id, 'decrement')}
+                           onClick={() => updateQuantity(item.cartItemId, 'decrement')}
                             className="p-2 hover:bg-gray-50 transition-colors"
                             disabled={item.quantity <= 1}
                           >
@@ -167,7 +210,7 @@ const CartPage = () => {
                             className="w-12 text-center border-x border-gray-300 py-2 text-sm font-semibold"
                           />
                           <button
-                            onClick={() => updateQuantity(item.id, 'increment')}
+                            onClick={() => updateQuantity(item.cartItemId, 'increment')}
                             className="p-2 hover:bg-gray-50 transition-colors"
                           >
                             <Plus size={16} className="text-gray-700" />
@@ -177,14 +220,14 @@ const CartPage = () => {
                         {/* Action Buttons */}
                         <div className="flex items-center gap-4">
                           <button
-                            onClick={() => moveToWishlist(item.id)}
+                            onClick={() => moveToWishlist(item.cartItemId)}
                             className="flex items-center gap-1 text-sm text-gray-600 hover:text-pink-300 transition-colors"
                           >
                             <Heart size={16} />
                             <span className="hidden sm:inline">Move to Wishlist</span>
                           </button>
                           <button
-                            onClick={() => removeItem(item.id)}
+                            onClick={() => removeItem(item.cartItemId)}
                             className="flex items-center gap-1 text-sm text-red-600 hover:text-red-700 transition-colors"
                           >
                             <Trash2 size={16} />
@@ -320,6 +363,7 @@ const CartPage = () => {
       </div>
     </div>
   );
+
 };
 
 export default CartPage;

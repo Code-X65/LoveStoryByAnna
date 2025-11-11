@@ -1,64 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { products } from '../Data/productsData';
 
-const products = [
-  {
-    id: 1,
-    name: 'NOELLA BUBBLE DRESS',
-    price: 'FROM ₦25,000.00',
-    image1: 'https://www.ruffntumblekids.com/cdn/shop/files/DRE_400x.png?v=1760459842',
-    image2: 'https://lh3.googleusercontent.com/gg-dl/ABS2GSnXWriW45gkkzwZIpQ0pUlB7CNZZFHs1qcwnYQLcpR0y0CqWEMOcbuwjYB0UHh4_prcZmdyHNbx0E2FQGCAXe7bEBSAuqkp0SFBWkbeAVdobG7ripygwa4_Hwzszimk2OWzzz7fLUV0UdiMnCTkBhvEd_D0doiSzDLV-NkQZqmxiQUF3Q=s1024-rj'
-  },
-  {
-    id: 2,
-    name: 'DOTTED BLACK RASPBERRY FLORAL BALL DRESS',
-    price: 'FROM ₦41,000.00',
-    image1: 'https://www.ruffntumblekids.com/cdn/shop/files/23_df5146bc-fa23-40b3-9714-2d58443a8c39_400x.png?v=1759744930',
-    image2: 'https://images.unsplash.com/photo-1612423284934-2850a4ea6b0f?w=400&h=500&fit=crop'
-  },
-  {
-    id: 3,
-    name: 'AURORA DRESS',
-    price: 'FROM ₦25,000.00',
-    image1: 'https://images.unsplash.com/photo-1518831959646-742c3a14ebf7?w=400&h=500&fit=crop',
-    image2: 'https://images.unsplash.com/photo-1519238263530-99bdd11df2ea?w=400&h=500&fit=crop'
-  },
-  {
-    id: 4,
-    name: 'RASPBERRY AND BLACK FLORAL BALL DRESS',
-    price: 'FROM ₦47,000.00',
-    image1: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=400&h=500&fit=crop',
-    image2: 'https://images.unsplash.com/photo-1612423284934-2850a4ea6b0f?w=400&h=500&fit=crop'
-  },
-  {
-    id: 5,
-    name: 'FUCHSIA PINK CAP SLEEVE A-LINE DRESS',
-    price: 'FROM ₦25,000.00',
-    image1: 'https://images.unsplash.com/photo-1612423284934-2850a4ea6b0f?w=400&h=500&fit=crop',
-    image2: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=400&h=500&fit=crop'
-  },
-  {
-    id: 6,
-    name: 'ANNABABI SET',
-    price: 'FROM ₦111,000.00',
-    image1: 'https://images.unsplash.com/photo-1519238263530-99bdd11df2ea?w=400&h=500&fit=crop',
-    image2: 'https://images.unsplash.com/photo-1518831959646-742c3a14ebf7?w=400&h=500&fit=crop'
-  },
-  {
-    id: 7,
-    name: 'YELLOW GREEN AND BLUE FLORAL CHICANKA A-LINE DRESS',
-    price: 'FROM ₦48,000.00',
-    image1: 'https://images.unsplash.com/photo-1596783074918-c84cb06531ca?w=400&h=500&fit=crop',
-    image2: 'https://images.unsplash.com/photo-1518831959646-742c3a14ebf7?w=400&h=500&fit=crop'
-  },
-  {
-    id: 8,
-    name: 'GREEN, OFF-WHITE AND PINK ABSTRACT CHIFFON A-LINE DRESS',
-    price: 'FROM ₦45,000.00',
-    image1: 'https://images.unsplash.com/photo-1519238263530-99bdd11df2ea?w=400&h=500&fit=crop',
-    image2: 'https://images.unsplash.com/photo-1612423284934-2850a4ea6b0f?w=400&h=500&fit=crop'
-  }
-];
 
 function ProductCard({ product }) {
   const [isHovered, setIsHovered] = useState(false);
@@ -110,9 +53,9 @@ export default function ProductGrid() {
 
         {/* Product Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-8 sm:gap-x-6 sm:gap-y-10 lg:gap-x-8 lg:gap-y-12">
-          {products.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
+         {products.slice(0, 8).map((product) => (
+  <ProductCard key={product.id} product={{...product, price: `FROM ₦${product.price.toLocaleString()}`}} />
+))}
         </div>
         <div className='text-center mt-8'>
 

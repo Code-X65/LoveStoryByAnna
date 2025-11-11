@@ -1,94 +1,66 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Heart, ShoppingCart, Trash2, Star, Share2 } from 'lucide-react';
+import { auth } from '../Firebase/Firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import { getUserWishlist, removeFromWishlist } from '../Firebase/wishlistServices';
+import { addToCart, getUserCart, updateCartItem } from '../Firebase/cartServices';
 
 const WishlistPage = () => {
-  const [wishlistItems, setWishlistItems] = useState([
-    {
-      id: 1,
-      name: "Boys Blue Ankara Short Sleeve Shirt",
-      image: "https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?w=400&h=500&fit=crop",
-      price: 37950,
-      originalPrice: 45000,
-      discount: 17,
-      rating: 4,
-      reviews: 42,
-      inStock: true,
-      sizes: ["18 MTH", "2 YEARS", "3 YEARS", "4 YEARS"]
-    },
-    {
-      id: 2,
-      name: "Girls Red Ankara Dress",
-      image: "https://images.unsplash.com/photo-1519058082700-08a0b56da9b4?w=400&h=500&fit=crop",
-      price: 45000,
-      originalPrice: 52000,
-      discount: 13,
-      rating: 5,
-      reviews: 38,
-      inStock: true,
-      sizes: ["2 YEARS", "3 YEARS", "4 YEARS", "5 YEARS"]
-    },
-    {
-      id: 3,
-      name: "Kids Traditional Print Shirt",
-      image: "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=400&h=500&fit=crop",
-      price: 33500,
-      originalPrice: 39000,
-      discount: 14,
-      rating: 4,
-      reviews: 25,
-      inStock: false,
-      sizes: ["18 MTH", "2 YEARS", "3 YEARS"]
-    },
-    {
-      id: 4,
-      name: "Boys Green Ankara Shirt",
-      image: "https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?w=400&h=500&fit=crop",
-      price: 35000,
-      originalPrice: 41000,
-      discount: 15,
-      rating: 5,
-      reviews: 31,
-      inStock: true,
-      sizes: ["2 YEARS", "3 YEARS", "4 YEARS"]
-    },
-    {
-      id: 5,
-      name: "Girls Yellow Traditional Dress",
-      image: "https://images.unsplash.com/photo-1519058082700-08a0b56da9b4?w=400&h=500&fit=crop",
-      price: 42000,
-      originalPrice: 49000,
-      discount: 14,
-      rating: 4,
-      reviews: 29,
-      inStock: true,
-      sizes: ["3 YEARS", "4 YEARS", "5 YEARS"]
-    },
-    {
-      id: 6,
-      name: "Boys Navy Ankara Polo",
-      image: "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=400&h=500&fit=crop",
-      price: 36500,
-      originalPrice: 43000,
-      discount: 15,
-      rating: 5,
-      reviews: 44,
-      inStock: true,
-      sizes: ["18 MTH", "2 YEARS", "3 YEARS", "4 YEARS"]
-    }
-  ]);
-
+  const [wishlistItems, setWishlistItems] = useState([]);
   const [selectedItems, setSelectedItems] = useState([]);
+  const [userId, setUserId] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const removeItem = (id) => {
-    setWishlistItems(wishlistItems.filter(item => item.id !== id));
-    setSelectedItems(selectedItems.filter(itemId => itemId !== id));
+  // Track authentication
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setUserId(user.uid);
+      } else {
+        setUserId(null);
+        setWishlistItems([]);
+        setLoading(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Fetch wishlist when user is authenticated
+  useEffect(() => {
+    const fetchWishlist = async () => {
+      if (userId) {
+        setLoading(true);
+        const items = await getUserWishlist(userId);
+        setWishlistItems(items);
+        setLoading(false);
+      }
+    };
+
+    fetchWishlist();
+  }, [userId]);
+
+  const removeItem = async (wishlistItemId) => {
+    if (!userId) {
+      alert('Please login to manage wishlist');
+      return;
+    }
+
+    const result = await removeFromWishlist(userId, wishlistItemId);
+    
+    if (result.success) {
+      setWishlistItems(wishlistItems.filter(item => item.wishlistItemId !== wishlistItemId));
+      setSelectedItems(selectedItems.filter(id => id !== wishlistItemId));
+    } else {
+      alert('Failed to remove item: ' + result.error);
+    }
   };
 
-  const toggleSelectItem = (id) => {
-    if (selectedItems.includes(id)) {
-      setSelectedItems(selectedItems.filter(itemId => itemId !== id));
+  const toggleSelectItem = (wishlistItemId) => {
+    if (selectedItems.includes(wishlistItemId)) {
+      setSelectedItems(selectedItems.filter(id => id !== wishlistItemId));
     } else {
-      setSelectedItems([...selectedItems, id]);
+      setSelectedItems([...selectedItems, wishlistItemId]);
     }
   };
 
@@ -96,27 +68,124 @@ const WishlistPage = () => {
     if (selectedItems.length === wishlistItems.length) {
       setSelectedItems([]);
     } else {
-      setSelectedItems(wishlistItems.map(item => item.id));
+      setSelectedItems(wishlistItems.map(item => item.wishlistItemId));
     }
   };
 
-  const addSelectedToCart = () => {
+  const addSelectedToCart = async () => {
+    if (!userId) {
+      alert('Please login to add items to cart');
+      return;
+    }
+
     const inStockSelected = selectedItems.filter(id => {
-      const item = wishlistItems.find(i => i.id === id);
-      return item && item.inStock;
+      const item = wishlistItems.find(i => i.wishlistItemId === id);
+      return item && item.stock > 0;
     });
     
-    if (inStockSelected.length > 0) {
-      alert(`${inStockSelected.length} item(s) added to cart!`);
-      // Remove added items from wishlist
-      setWishlistItems(wishlistItems.filter(item => !inStockSelected.includes(item.id)));
-      setSelectedItems([]);
+    if (inStockSelected.length === 0) {
+      alert('No in-stock items selected');
+      return;
+    }
+
+    try {
+      let successCount = 0;
+      const currentCart = await getUserCart(userId);
+
+      for (const wishlistItemId of inStockSelected) {
+        const item = wishlistItems.find(i => i.wishlistItemId === wishlistItemId);
+        if (!item) continue;
+
+        // Default size and color (you may want to prompt user for these)
+        const defaultSize = 'One Size';
+        const defaultColor = 'Default';
+
+        // Check if item already exists in cart
+        const existingCartItem = currentCart.find(
+          cartItem => cartItem.productId === item.productId
+        );
+
+        if (existingCartItem) {
+          // Update existing cart item
+          const newQuantity = existingCartItem.quantity + 1;
+          
+          if (newQuantity <= item.stock) {
+            const result = await updateCartItem(userId, existingCartItem.cartItemId, newQuantity);
+            if (result.success) {
+              successCount++;
+              // Remove from wishlist after adding to cart
+              await removeFromWishlist(userId, wishlistItemId);
+            }
+          }
+        } else {
+          // Add new item to cart
+          const cartProduct = {
+            id: item.productId,
+            name: item.name,
+            price: item.price,
+            images: [item.image],
+            stock: item.stock,
+            brand: item.brand || '',
+            rating: item.rating || 0
+          };
+
+          const result = await addToCart(userId, cartProduct, defaultSize, defaultColor, 1);
+          
+          if (result.success) {
+            successCount++;
+            // Remove from wishlist after adding to cart
+            await removeFromWishlist(userId, wishlistItemId);
+          }
+        }
+      }
+
+      if (successCount > 0) {
+        alert(`${successCount} item(s) added to cart!`);
+        // Refresh wishlist
+        const updatedWishlist = await getUserWishlist(userId);
+        setWishlistItems(updatedWishlist);
+        setSelectedItems([]);
+      } else {
+        alert('Failed to add items to cart');
+      }
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      alert('An error occurred. Please try again.');
     }
   };
 
   const shareWishlist = () => {
     alert('Wishlist sharing link copied to clipboard!');
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-pink-300 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading wishlist...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!userId) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <Heart className="mx-auto text-gray-300 mb-4" size={80} />
+          <h2 className="text-2xl font-semibold text-gray-900 mb-2">Please login to view wishlist</h2>
+          <p className="text-gray-600 mb-6">Sign in to save your favorite items</p>
+          <button 
+            onClick={() => window.location.href = '/login'}
+            className="bg-pink-300 text-white px-8 py-3 font-semibold hover:bg-pink-400 transition-colors"
+          >
+            Login
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white">
@@ -149,7 +218,10 @@ const WishlistPage = () => {
             <Heart className="mx-auto text-gray-300 mb-4" size={80} />
             <h2 className="text-2xl font-semibold text-gray-900 mb-2">Your wishlist is empty</h2>
             <p className="text-gray-600 mb-6">Save items you love for later</p>
-            <button className="bg-pink-300 text-white px-8 py-3 font-semibold hover:bg-pink-400 transition-colors">
+            <button 
+              onClick={() => window.location.href = '/'}
+              className="bg-pink-300 text-white px-8 py-3 font-semibold hover:bg-pink-400 transition-colors"
+            >
               Start Shopping
             </button>
           </div>
@@ -187,8 +259,10 @@ const WishlistPage = () => {
                       Add to Cart ({selectedItems.length})
                     </button>
                     <button
-                      onClick={() => {
-                        selectedItems.forEach(id => removeItem(id));
+                      onClick={async () => {
+                        for (const id of selectedItems) {
+                          await removeItem(id);
+                        }
                       }}
                       className="px-4 py-2 border-2 border-red-500 text-red-500 font-medium hover:bg-red-500 hover:text-white transition-colors"
                     >
@@ -203,22 +277,22 @@ const WishlistPage = () => {
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {wishlistItems.map((item) => (
                 <div
-                  key={item.id}
+                  key={item.wishlistItemId}
                   className="group border border-gray-200 hover:border-pink-300 transition-all bg-white relative"
                 >
                   {/* Checkbox */}
                   <div className="absolute top-3 left-3 z-10">
                     <input
                       type="checkbox"
-                      checked={selectedItems.includes(item.id)}
-                      onChange={() => toggleSelectItem(item.id)}
+                      checked={selectedItems.includes(item.wishlistItemId)}
+                      onChange={() => toggleSelectItem(item.wishlistItemId)}
                       className="w-5 h-5 text-pink-300 border-gray-300 focus:ring-pink-300"
                     />
                   </div>
 
                   {/* Remove Button */}
                   <button
-                    onClick={() => removeItem(item.id)}
+                    onClick={() => removeItem(item.wishlistItemId)}
                     className="absolute top-3 right-3 z-10 bg-white p-2 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50"
                   >
                     <Trash2 size={16} className="text-red-500" />
@@ -240,7 +314,7 @@ const WishlistPage = () => {
                     )}
 
                     {/* Stock Badge */}
-                    {!item.inStock && (
+                    {item.stock === 0 && (
                       <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                         <span className="bg-red-500 text-white text-sm px-4 py-2 font-semibold">
                           Out of Stock
@@ -250,15 +324,53 @@ const WishlistPage = () => {
 
                     {/* Quick Add to Cart */}
                     <button
-                      disabled={!item.inStock}
+                      disabled={item.stock === 0}
+                      onClick={async () => {
+                        if (userId) {
+                          const currentCart = await getUserCart(userId);
+                          const existingItem = currentCart.find(
+                            cartItem => cartItem.productId === item.productId
+                          );
+
+                          if (existingItem) {
+                            const newQuantity = existingItem.quantity + 1;
+                            if (newQuantity <= item.stock) {
+                              await updateCartItem(userId, existingItem.cartItemId, newQuantity);
+                              alert('Cart updated!');
+                              await removeFromWishlist(userId, item.wishlistItemId);
+                              const updatedWishlist = await getUserWishlist(userId);
+                              setWishlistItems(updatedWishlist);
+                            } else {
+                              alert('Cannot add more. Stock limit reached.');
+                            }
+                          } else {
+                            const cartProduct = {
+                              id: item.productId,
+                              name: item.name,
+                              price: item.price,
+                              images: [item.image],
+                              stock: item.stock,
+                              brand: item.brand || '',
+                              rating: item.rating || 0
+                            };
+                            const result = await addToCart(userId, cartProduct, 'One Size', 'Default', 1);
+                            if (result.success) {
+                              alert('Added to cart!');
+                              await removeFromWishlist(userId, item.wishlistItemId);
+                              const updatedWishlist = await getUserWishlist(userId);
+                              setWishlistItems(updatedWishlist);
+                            }
+                          }
+                        }
+                      }}
                       className={`absolute bottom-0 left-0 right-0 py-2 text-sm font-medium opacity-0 group-hover:opacity-100 transition-all ${
-                        item.inStock
+                        item.stock > 0
                           ? 'bg-pink-300 text-white hover:bg-pink-400'
                           : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       }`}
                     >
                       <ShoppingCart size={16} className="inline mr-1" />
-                      {item.inStock ? 'Add to Cart' : 'Out of Stock'}
+                      {item.stock > 0 ? 'Add to Cart' : 'Out of Stock'}
                     </button>
                   </div>
 
@@ -280,22 +392,13 @@ const WishlistPage = () => {
                           />
                         ))}
                       </div>
-                      <span className="text-xs text-gray-500">({item.reviews})</span>
                     </div>
 
-                    {/* Sizes */}
+                    {/* Stock Info */}
                     <div className="mb-2">
-                      <p className="text-xs text-gray-500 mb-1">Available sizes:</p>
-                      <div className="flex flex-wrap gap-1">
-                        {item.sizes.slice(0, 3).map((size, index) => (
-                          <span key={index} className="text-xs border border-gray-300 px-1.5 py-0.5">
-                            {size}
-                          </span>
-                        ))}
-                        {item.sizes.length > 3 && (
-                          <span className="text-xs text-gray-500">+{item.sizes.length - 3}</span>
-                        )}
-                      </div>
+                      <p className="text-xs text-gray-500">
+                        {item.stock > 0 ? `${item.stock} in stock` : 'Out of stock'}
+                      </p>
                     </div>
 
                     {/* Price */}
@@ -303,7 +406,7 @@ const WishlistPage = () => {
                       <span className="text-base font-bold text-gray-900">
                         ₦{item.price.toLocaleString()}
                       </span>
-                      {item.originalPrice && (
+                      {item.originalPrice && item.originalPrice > item.price && (
                         <span className="text-xs text-gray-400 line-through">
                           ₦{item.originalPrice.toLocaleString()}
                         </span>
@@ -316,7 +419,10 @@ const WishlistPage = () => {
 
             {/* Bottom Action */}
             <div className="mt-8 text-center">
-              <button className="px-8 py-3 border-2 border-pink-300 text-pink-300 font-semibold hover:bg-pink-300 hover:text-white transition-all">
+              <button 
+                onClick={() => window.location.href = '/'}
+                className="px-8 py-3 border-2 border-pink-300 text-pink-300 font-semibold hover:bg-pink-300 hover:text-white transition-all"
+              >
                 Continue Shopping
               </button>
             </div>

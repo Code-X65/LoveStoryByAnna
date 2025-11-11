@@ -1,34 +1,128 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Heart, Minus, Plus, ShoppingCart, Truck, RotateCcw, Star, Share2 } from 'lucide-react';
 import RelatedProducts from './RelatedProducts';
+import ReviewSection from '../ReviewSection';
+import { useParams } from 'react-router-dom';
+import { getProductById } from '../../Firebase/productServices';
+import { addToCart, getUserCart, updateCartItem  } from '../../Firebase/cartServices';
+import { auth } from '../../Firebase/Firebase';
+import { addToWishlist, removeFromWishlist, isInWishlist } from '../../Firebase/wishlistServices';
+
 
 const ProductDetailPage = () => {
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedSize, setSelectedSize] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [isWishlisted, setIsWishlisted] = useState(false);
+  const [wishlistItemId, setWishlistItemId] = useState(null);
 
-  const product = {
-    name: "BOYS BLUE ANKARA SHORT SLEEVE SHIRT",
-    brand: "ANKARA KIDS",
-    model: "Latest AKS",
-    sku: "LSSCBDLNCR_18 MTH",
-    price: 37950,
-    originalPrice: 45000,
-    discount: 17,
-    rating: 4,
-    reviews: 42,
-    stock: 6,
-    images: [
-      "https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?w=600&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1519058082700-08a0b56da9b4?w=600&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=600&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?w=600&h=800&fit=crop"
-    ],
-    sizes: ["18 MTH", "2 YEARS", "3 YEARS", "4 YEARS"],
-    colors: ["Blue", "Red", "Green"],
-    description: "The Boys Blue Ankara Short Sleeve Shirt features premium quality fabric with vibrant Ankara prints, delivering comfort, style, and durability. Ideal for parties, outdoor adventures, or everyday wear. Perfect for gatherings, picnics, or casual outings."
+  const { productId } = useParams();
+const [product, setProduct] = useState(null);
+const [loading, setLoading] = useState(true);
+
+
+  useEffect(() => {
+  const fetchProduct = async () => {
+    try {
+      setLoading(true);
+      const data = await getProductById(productId);
+      setProduct(data);
+    } catch (error) {
+      console.error('Error fetching product:', error);
+      alert('Product not found');
+    } finally {
+      setLoading(false);
+    }
   };
+
+  if (productId) {
+    fetchProduct();
+  }
+}, [productId]);
+
+useEffect(() => {
+  const checkWishlistStatus = async () => {
+    const user = auth.currentUser;
+    if (user && product) {
+      const itemId = await isInWishlist(user.uid, product.id);
+      setWishlistItemId(itemId);
+      setIsWishlisted(!!itemId);
+    }
+  };
+
+  checkWishlistStatus();
+}, [product]);
+
+const getStockStatus = (stock) => {
+  if (stock === 0) {
+    return { 
+      label: 'Out of Stock', 
+      color: 'bg-red-100', 
+      textColor: 'text-red-700',
+      borderColor: 'border-red-200'
+    };
+  } else if (stock <= 5) {
+    return { 
+      label: 'Low Stock', 
+      color: 'bg-yellow-100', 
+      textColor: 'text-yellow-700',
+      borderColor: 'border-yellow-200'
+    };
+  } else {
+    return { 
+      label: 'In Stock', 
+      color: 'bg-green-100', 
+      textColor: 'text-green-700',
+      borderColor: 'border-green-200'
+    };
+  }
+};
+const handleWishlist = async () => {
+  const user = auth.currentUser;
+  
+  if (!user) {
+    alert('Please login to add products to wishlist');
+    return;
+  }
+
+  if (isWishlisted && wishlistItemId) {
+    // Remove from wishlist
+    const result = await removeFromWishlist(user.uid, wishlistItemId);
+    if (result.success) {
+      setIsWishlisted(false);
+      setWishlistItemId(null);
+      alert('Removed from wishlist');
+    } else {
+      alert('Failed to remove from wishlist: ' + result.error);
+    }
+  } else {
+    // Add to wishlist
+    const wishlistProduct = {
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      originalPrice: product.originalPrice,
+      discount: product.discount,
+      images: product.images,
+      brand: product.brand,
+      rating: product.rating,
+      stock: product.stock
+    };
+
+    const result = await addToWishlist(user.uid, wishlistProduct);
+    
+    if (result.success) {
+      const itemId = await isInWishlist(user.uid, product.id);
+      setWishlistItemId(itemId);
+      setIsWishlisted(true);
+      alert('Added to wishlist!');
+    } else {
+      alert(result.error || 'Failed to add to wishlist');
+    }
+  }
+};
+
+
 
   const handleQuantityChange = (type) => {
     if (type === 'increment' && quantity < product.stock) {
@@ -38,12 +132,110 @@ const ProductDetailPage = () => {
     }
   };
 
-  const features = [
-    { label: "Material", value: "Premium Cotton Blend" },
-    { label: "Pattern", value: "Authentic Ankara Print" },
-    { label: "Care", value: "Machine Washable" },
-    { label: "Fit", value: "Comfortable Regular Fit" }
-  ];
+const handleAddToCart = async () => {
+  const user = auth.currentUser;
+  
+  if (!user) {
+    alert('Please login to add products to cart');
+    return;
+  }
+
+  if (!selectedSize) {
+    alert('Please select a size');
+    return;
+  }
+
+  try {
+    // First, get the user's current cart
+    const currentCart = await getUserCart(user.uid);
+    
+    // Check if product with same ID and size already exists
+    const existingItem = currentCart.find(
+      item => item.productId === product.id && item.size === selectedSize
+    );
+
+    if (existingItem) {
+      // Product exists - update quantity instead
+      const newQuantity = existingItem.quantity + quantity;
+      
+      // Check if new quantity exceeds stock
+      if (newQuantity > product.stock) {
+        alert(`Cannot add more items. Only ${product.stock} units available. You already have ${existingItem.quantity} in cart.`);
+        return;
+      }
+      
+      const result = await updateCartItem(user.uid, existingItem.cartItemId, newQuantity);
+      
+      if (result.success) {
+        alert(`Cart updated! Total quantity: ${newQuantity}`);
+      } else {
+        alert('Failed to update cart: ' + result.error);
+      }
+    } else {
+      // Product doesn't exist - add new item
+      const cartProduct = {
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        images: product.images,
+        selectedSize: selectedSize,
+        quantity: quantity
+      };
+
+      const result = await addToCart(user.uid, cartProduct);
+      
+      if (result.success) {
+        alert('Product added to cart successfully!');
+      } else {
+        alert('Failed to add product to cart: ' + result.error);
+      }
+    }
+  } catch (error) {
+    console.error('Error handling cart:', error);
+    alert('An error occurred. Please try again.');
+  }
+};
+
+if (loading) {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-white">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-pink-300 mx-auto mb-4"></div>
+        <p className="text-gray-600">Loading product...</p>
+      </div>
+    </div>
+  );
+}
+
+if (!product) {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-white">
+      <div className="text-center">
+        <p className="text-gray-800 text-xl mb-4">Product not found</p>
+        <button 
+          onClick={() => window.history.back()}
+          className="px-6 py-3 bg-pink-300 text-white font-semibold hover:bg-pink-400"
+        >
+          Go Back
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
+
+const features = [
+  { label: "Material", value: product.material || "Premium Cotton Blend" },
+  { label: "Pattern", value: product.pattern || "Authentic Ankara Print" },
+  { label: "Care", value: product.care || "Machine Washable" },
+  { label: "Fit", value: product.fit || "Comfortable Regular Fit" }
+];
+
+
+const stockStatus = getStockStatus(product.stock);
+
+
 
   return (
     <div className=" bg-white">
@@ -52,11 +244,11 @@ const ProductDetailPage = () => {
           {/* Left Column - Images */}
           <div className="lg:sticky lg:top-6 h-fit">
             {/* Main Image */}
-            <div className="bg-gray-50 border border-gray-200 mb-4">
+            <div className="bg-gray-50 border border-gray-200 mb-4 h-[500px] w-full">
               <img
                 src={product.images[selectedImage]}
                 alt={product.name}
-                className="w-full h-auto object-contain"
+                className="w-full h-full object-cover"
               />
             </div>
 
@@ -66,7 +258,7 @@ const ProductDetailPage = () => {
                 <button
                   key={index}
                   onClick={() => setSelectedImage(index)}
-                  className={`border-2 transition-all ${
+                  className={`border-2 transition-all h-[150px] ${
                     selectedImage === index
                       ? 'border-pink-300'
                       : 'border-gray-200 hover:border-gray-300'
@@ -75,7 +267,7 @@ const ProductDetailPage = () => {
                   <img
                     src={image}
                     alt={`View ${index + 1}`}
-                    className="w-full h-auto object-cover"
+                    className="w-full h-full object-cover"
                   />
                 </button>
               ))}
@@ -133,9 +325,9 @@ const ProductDetailPage = () => {
                   </div>
                   <span className="text-sm text-gray-600">(Reviews: {product.reviews})</span>
                 </div>
-                <span className="bg-green-100 text-green-700 text-xs px-2 py-1 font-medium">
-                  In Stock
-                </span>
+              <span className={`${stockStatus.color} ${stockStatus.textColor} text-xs px-2 py-1 font-medium`}>
+  {stockStatus.label}
+</span>
               </div>
             </div>
 
@@ -153,7 +345,7 @@ const ProductDetailPage = () => {
                 </span>
               </div>
               <p className="text-sm text-gray-600 mt-2">
-                The JBL Boombox 2 is a powerful, portable Bluetooth speaker in black, delivering booming bass, long-lasting battery life, and splashproof durability. Ideal for parties, outdoor adventures, or home use.
+                {product.description}
               </p>
             </div>
 
@@ -173,6 +365,28 @@ const ProductDetailPage = () => {
                 ))}
               </div>
             </div>
+            
+{product.stock === 0 && (
+  <div className="bg-red-50 border border-red-200 px-4 py-3">
+    <p className="text-sm text-red-700 font-medium">
+      ⚠️ This product is currently out of stock
+    </p>
+  </div>
+)}
+
+{product.stock > 0 && product.stock <= 5 && (
+  <div className="bg-yellow-50 border border-yellow-200 px-4 py-3">
+    <p className="text-sm text-yellow-700 font-medium">
+      ⚠️ Only {product.stock} units left in stock - Order soon!
+    </p>
+  </div>
+)}
+
+{!selectedSize && product.stock > 0 && (
+  <p className="text-sm text-red-500">
+    ⚠ Please select a size
+  </p>
+)}
 
             {/* Size Selection */}
             <div>
@@ -205,55 +419,56 @@ const ProductDetailPage = () => {
             {/* Quantity and Actions */}
             <div className="space-y-4">
               {/* Quantity */}
-              <div className="flex items-center gap-4">
-                <div className="flex items-center border border-gray-300">
-                  <button
-                    onClick={() => handleQuantityChange('decrement')}
-                    className="px-4 py-3 hover:bg-gray-50 transition-colors disabled:opacity-40"
-                    disabled={quantity <= 1}
-                  >
-                    <Minus size={16} className="text-gray-700" />
-                  </button>
-                  <input
-                    type="text"
-                    value={quantity}
-                    readOnly
-                    className="w-16 text-center border-x border-gray-300 py-3 text-sm font-semibold"
-                  />
-                  <button
-                    onClick={() => handleQuantityChange('increment')}
-                    className="px-4 py-3 hover:bg-gray-50 transition-colors disabled:opacity-40"
-                    disabled={quantity >= product.stock}
-                  >
-                    <Plus size={16} className="text-gray-700" />
-                  </button>
-                </div>
-
-                <button
-                  disabled={!selectedSize}
-                  className={`flex-1 py-3 font-semibold text-sm transition-all flex items-center justify-center gap-2 ${
-                    selectedSize
-                      ? 'bg-pink-300 text-white hover:bg-pink-400'
-                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  }`}
-                >
-                  <ShoppingCart size={18} />
-                  Update Cart
-                </button>
-              </div>
+            <div className="flex items-center gap-4">
+  <div className="flex items-center border border-gray-300">
+    <button
+      onClick={() => handleQuantityChange('decrement')}
+      className="px-4 py-3 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+      disabled={quantity <= 1 || product.stock === 0}
+    >
+      <Minus size={16} className="text-gray-700" />
+    </button>
+    <input
+      type="text"
+      value={quantity}
+      readOnly
+      className="w-16 text-center border-x border-gray-300 py-3 text-sm font-semibold"
+    />
+    <button
+      onClick={() => handleQuantityChange('increment')}
+      className="px-4 py-3 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+      disabled={quantity >= product.stock || product.stock === 0}
+    >
+      <Plus size={16} className="text-gray-700" />
+    </button>
+  </div>
+<button
+  onClick={handleAddToCart}
+  disabled={!selectedSize || product.stock === 0}
+  className={`flex-1 py-3 font-semibold text-sm transition-all flex items-center justify-center gap-2 ${
+    selectedSize && product.stock > 0
+      ? 'bg-pink-300 text-white hover:bg-pink-400'
+      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+  }`}
+>
+  <ShoppingCart size={18} />
+  {product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
+</button>
+  </div>
 
               {/* Wishlist and Share */}
               <div className="flex gap-3">
-                <button
-                  onClick={() => setIsWishlisted(!isWishlisted)}
-                  className={`flex-1 py-3 border-2 font-medium text-sm transition-all flex items-center justify-center gap-2 ${
-                    isWishlisted
-                      ? 'border-pink-300 bg-pink-50 text-pink-400'
-                      : 'border-gray-300 text-gray-700 hover:border-pink-300'
-                  }`}
-                >
-                  <Heart size={18} className={isWishlisted ? 'fill-pink-400' : ''} />
-                </button>
+              <button
+  onClick={handleWishlist}
+  className={`flex-1 py-3 border-2 font-medium text-sm transition-all flex items-center justify-center gap-2 ${
+    isWishlisted
+      ? 'border-pink-300 bg-pink-50 text-pink-400'
+      : 'border-gray-300 text-gray-700 hover:border-pink-300'
+  }`}
+>
+  <Heart size={18} className={isWishlisted ? 'fill-pink-400' : ''} />
+  {isWishlisted ? 'Wishlisted' : 'Add to Wishlist'}
+</button>
                 <button className="flex-1 py-3 border-2 border-gray-300 font-medium text-sm text-gray-700 hover:border-pink-300 transition-all flex items-center justify-center gap-2">
                   <Share2 size={18} />
                 </button>
@@ -317,6 +532,7 @@ const ProductDetailPage = () => {
           </div>
         </div>
       </div>
+      <ReviewSection/>
       <RelatedProducts />
     </div>
   );

@@ -1,10 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { auth } from  '../Firebase/Firebase';
+import { getUserAddresses } from '../Firebase/addressServices';
+import { getUserCart, clearCart } from '../Firebase/cartServices';
+import { createOrder, updateOrderOtp } from '../Firebase/orderServices';
+
 import { CreditCard, Truck, MapPin, Phone, Mail, User, Lock, ChevronRight } from 'lucide-react';
 
 const CheckoutPage = () => {
+  const [savedAddresses, setSavedAddresses] = useState([]);
+  const [selectedAddressId, setSelectedAddressId] = useState(null);
+  const [useNewAddress, setUseNewAddress] = useState(false);
   const [step, setStep] = useState(1);
+  const [orderNumber, setOrderNumber] = useState('');
   const [showOrderStatus, setShowOrderStatus] = useState(false);
-const [orderPlaced, setOrderPlaced] = useState(false);
+  const [orderPlaced, setOrderPlaced] = useState(false);
+  const [cartItems, setCartItems] = useState([]);
+  const [loadingCart, setLoadingCart] = useState(true);
+  // Remove the old OTP states and replace with:
+const [orderOtp, setOrderOtp] = useState('');
+const [showOtpModal, setShowOtpModal] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -26,24 +40,247 @@ const [orderPlaced, setOrderPlaced] = useState(false);
     termsAccepted: false
   });
 
-  const cartItems = [
-    {
-      id: 1,
-      name: "Boys Blue Ankara Short Sleeve Shirt",
-      image: "https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?w=400&h=500&fit=crop",
-      price: 37950,
-      quantity: 1,
-      size: "2 YEARS"
-    },
-    {
-      id: 2,
-      name: "Girls Red Ankara Dress",
-      image: "https://images.unsplash.com/photo-1519058082700-08a0b56da9b4?w=400&h=500&fit=crop",
-      price: 45000,
-      quantity: 2,
-      size: "3 YEARS"
+const populateFormWithAddress = (address) => {
+  setFormData({
+    ...formData,
+    firstName: address.name.split(' ')[0] || '',
+    lastName: address.name.split(' ').slice(1).join(' ') || '',
+    email: address.email || '',  // Add this line
+    phone: address.phone,
+    address: address.address,
+    city: address.city,
+    state: address.state
+  });
+};
+
+const generateAndSendOrderOtp = async (orderId) => {
+  // Generate 6-digit OTP
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  setOrderOtp(otp);
+  
+  try {
+    const user = auth.currentUser;
+    if (!user) {
+      console.error('No user found');
+      return otp;
     }
-  ];
+
+    // Save OTP to database FIRST
+    await updateOrderOtp(user.uid, orderId, otp);
+
+    // Then send email
+    const response = await fetch('https://formspree.io/f/mldaeblj', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        email: formData.email,
+        subject: 'Love Story By Anna - Order Confirmation OTP',
+        message: `Thank you for your order!
+        
+Your order number: ${orderNumber}
+Your Order Confirmation OTP: ${otp}
+
+Please save this OTP. You may need it for order tracking or customer support.
+
+Order Details:
+Total Amount: ₦${total.toLocaleString()}
+Estimated Delivery: ${formData.shippingMethod === 'express' ? '2-3 days' : '5-7 days'}
+
+Thank you for shopping with Love Story By Anna!`,
+        _replyto: formData.email,
+        _template: 'table'
+      })
+    });
+
+    if (!response.ok) {
+      console.error('Failed to send OTP email');
+    }
+    
+    return otp;
+  } catch (error) {
+    console.error('Error in generateAndSendOrderOtp:', error);
+    return otp;
+  }
+};
+
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://js.paystack.co/v1/inline.js';
+    script.async = true;
+    document.body.appendChild(script);
+
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
+
+  const generateOrderNumber = () => {
+    return `LS${Date.now()}${Math.floor(Math.random() * 1000)}`;
+  };
+
+  const prepareOrderData = (paymentReference = null, paymentStatus = 'pending') => {
+    const orderNum = generateOrderNumber();
+    setOrderNumber(orderNum);
+
+    return {
+      orderNumber: orderNum,
+      items: cartItems.map(item => ({
+        productId: item.productId,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        size: item.size,
+        image: item.image
+      })),
+      shippingAddress: {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        phone: formData.phone,
+        address: formData.address,
+        city: formData.city,
+        state: formData.state,
+        zipCode: formData.zipCode,
+        country: formData.country
+      },
+      paymentMethod: formData.paymentMethod,
+      shippingMethod: formData.shippingMethod,
+      subtotal: subtotal,
+      shippingCost: shippingCost,
+      tax: tax,
+      total: total,
+      status: 'pending',
+      paymentStatus: paymentStatus,
+      paymentReference: paymentReference
+    };
+  };
+
+const payWithPaystack = () => {
+  if (!window.PaystackPop) {
+    alert('Paystack is not loaded. Please refresh and try again.');
+    return;
+  }
+
+  const user = auth.currentUser;
+  if (!user) {
+    alert('Please login to continue');
+    return;
+  }
+
+  const handler = window.PaystackPop.setup({
+    key: 'pk_test_193ff585726726ec44aac5aeda26996b1fb5753b', // Replace with your public key
+    email: formData.email,
+    amount: Math.round(total * 100), // Amount in kobo
+    currency: 'NGN',
+    ref: `LS${Date.now()}${Math.floor(Math.random() * 1000)}`,
+    channels: ['card', 'bank', 'ussd', 'qr'], // Multiple payment options
+    metadata: {
+      custom_fields: [
+        {
+          display_name: "Customer Name",
+          variable_name: "customer_name",
+          value: `${formData.firstName} ${formData.lastName}`
+        },
+        {
+          display_name: "Phone Number",
+          variable_name: "phone_number",
+          value: formData.phone
+        },
+        {
+          display_name: "Order Items",
+          variable_name: "order_items",
+          value: cartItems.length
+        }
+      ]
+    },
+    callback: (response) => {
+      console.log('Payment successful:', response);
+      handlePaymentSuccess(response);
+    },
+    onClose: () => {
+      console.log('Payment window closed');
+      alert('Payment was not completed. Please try again.');
+    }
+  });
+
+  handler.openIframe();
+};
+
+const handlePaymentSuccess = async (response) => {
+  const user = auth.currentUser;
+  if (!user) {
+    alert('User session expired. Please login again.');
+    return;
+  }
+
+  try {
+    // Create order with paid status
+    const orderData = prepareOrderData(response.reference, 'paid');
+    const result = await createOrder(user.uid, orderData);
+
+    if (result.success) {
+      // Generate and send OTP
+      const otp = await generateAndSendOrderOtp(result.orderId);
+      
+      // Clear cart after successful order
+      await clearCart(user.uid);
+      
+      setOrderOtp(otp);
+      setOrderPlaced(true);
+      setShowOrderStatus(true);
+    } else {
+      alert('Order creation failed: ' + result.error);
+    }
+  } catch (error) {
+    console.error('Error processing order:', error);
+    alert('An error occurred while processing your order. Please contact support.');
+  }
+};
+
+const handlePlaceOrder = async () => {
+  if (!formData.termsAccepted) {
+    alert('Please accept the terms and conditions');
+    return;
+  }
+
+  const user = auth.currentUser;
+  if (!user) {
+    alert('Please login to place order');
+    return;
+  }
+
+  // Validate email for card payment
+  if (formData.paymentMethod === 'card' && !formData.email) {
+    alert('Please provide your email address');
+    return;
+  }
+
+  // Handle different payment methods
+  if (formData.paymentMethod === 'card') {
+    // Initialize Paystack payment
+    payWithPaystack();
+  } else {
+    // For Bank Transfer or Cash on Delivery
+    const orderData = prepareOrderData(null, 'pending');
+    const result = await createOrder(user.uid, orderData);
+
+    if (result.success) {
+      // Generate and send OTP
+      const otp = await generateAndSendOrderOtp(result.orderId);
+      
+      // Clear cart after successful order
+      await clearCart(user.uid);
+      
+      setOrderOtp(otp);
+      setOrderPlaced(true);
+      setShowOrderStatus(true);
+    } else {
+      alert('Order creation failed: ' + result.error);
+    }
+  }
+};
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -59,20 +296,27 @@ const [orderPlaced, setOrderPlaced] = useState(false);
   const total = subtotal + shippingCost + tax;
 
   const handleContinue = () => {
+    if (step === 1) {
+      // Validate address is selected or new address is filled
+      if (!useNewAddress && !selectedAddressId && savedAddresses.length > 0) {
+        alert('Please select a delivery address');
+        return;
+      }
+      
+      if (useNewAddress || savedAddresses.length === 0) {
+        if (!formData.firstName || !formData.lastName || !formData.email || 
+            !formData.phone || !formData.address || !formData.city || !formData.state) {
+          alert('Please fill in all required fields');
+          return;
+        }
+      }
+    }
+    
     if (step < 3) {
       setStep(step + 1);
       window.scrollTo(0, 0);
     }
   };
-
-const handlePlaceOrder = () => {
-  if (!formData.termsAccepted) {
-    alert('Please accept the terms and conditions');
-    return;
-  }
-  setOrderPlaced(true);
-  setShowOrderStatus(true);
-};
 
   const nigerianStates = [
     "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa", "Benue", "Borno",
@@ -82,60 +326,171 @@ const handlePlaceOrder = () => {
     "Sokoto", "Taraba", "Yobe", "Zamfara", "FCT"
   ];
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Breadcrumb */}
-        <div className="text-sm text-gray-500 mb-6">
-          Home / Cart / <span className="text-pink-300">Checkout</span>
-        </div>
+  useEffect(() => {
+    const fetchData = async () => {
+      const user = auth.currentUser;
+      if (user) {
+        // Fetch addresses
+        const addresses = await getUserAddresses(user.uid);
+        setSavedAddresses(addresses);
+        
+        // Auto-select default address if exists
+        const defaultAddress = addresses.find(addr => addr.isDefault);
+        if (defaultAddress) {
+          setSelectedAddressId(defaultAddress.id);
+          populateFormWithAddress(defaultAddress);
+        }
 
-        {/* Progress Steps */}
-        <div className="mb-8">
-          <div className="flex items-center justify-center">
-            {[1, 2, 3].map((stepNum) => (
-              <React.Fragment key={stepNum}>
-                <div className="flex items-center">
-                  <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${
-                      step >= stepNum
-                        ? 'bg-pink-300 text-white'
-                        : 'bg-gray-200 text-gray-500'
-                    }`}
-                  >
-                    {stepNum}
-                  </div>
-                  <span
-                    className={`ml-2 text-sm font-medium hidden sm:inline ${
-                      step >= stepNum ? 'text-pink-300' : 'text-gray-500'
-                    }`}
-                  >
-                    {stepNum === 1 ? 'Shipping' : stepNum === 2 ? 'Payment' : 'Review'}
-                  </span>
+        // Fetch cart items
+        const cart = await getUserCart(user.uid);
+        setCartItems(cart);
+      }
+      setLoadingCart(false);
+    };
+    
+    fetchData();
+  }, []);
+
+  if (loadingCart) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-pink-300 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading checkout...</p>
+        </div>
+      </div>
+    );
+  }
+return (
+  <div className="min-h-screen bg-gray-50">
+    <div className="max-w-7xl mx-auto px-4 py-8">
+      {/* Breadcrumb */}
+      <div className="text-sm text-gray-500 mb-6">
+        Home / Cart / <span className="text-pink-300">Checkout</span>
+      </div>
+
+      {/* Progress Steps */}
+      <div className="mb-8">
+        <div className="flex items-center justify-center">
+          {[1, 2, 3].map((stepNum) => (
+            <React.Fragment key={stepNum}>
+              <div className="flex items-center">
+                <div
+                  className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${
+                    step >= stepNum
+                      ? 'bg-pink-300 text-white'
+                      : 'bg-gray-200 text-gray-500'
+                  }`}
+                >
+                  {stepNum}
                 </div>
-                {stepNum < 3 && (
-                  <div
-                    className={`w-16 sm:w-24 h-1 mx-2 ${
-                      step > stepNum ? 'bg-pink-300' : 'bg-gray-200'
-                    }`}
-                  />
-                )}
-              </React.Fragment>
-            ))}
-          </div>
+                <span
+                  className={`ml-2 text-sm font-medium hidden sm:inline ${
+                    step >= stepNum ? 'text-pink-300' : 'text-gray-500'
+                  }`}
+                >
+                  {stepNum === 1 ? 'Shipping' : stepNum === 2 ? 'Payment' : 'Review'}
+                </span>
+              </div>
+              {stepNum < 3 && (
+                <div
+                  className={`w-16 sm:w-24 h-1 mx-2 ${
+                    step > stepNum ? 'bg-pink-300' : 'bg-gray-200'
+                  }`}
+                />
+              )}
+            </React.Fragment>
+          ))}
         </div>
+      </div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Main Content */}
-          <div className="lg:col-span-2">
-            <div className="bg-white border border-gray-200 p-6">
-              {/* Step 1: Shipping Information */}
-              {step === 1 && (
-                <div>
-                  <div className="flex items-center gap-2 mb-6">
-                    <Truck className="text-pink-300" size={24} />
-                    <h2 className="text-2xl font-semibold text-gray-900">Shipping Information</h2>
+      <div className="grid lg:grid-cols-3 gap-8">
+        {/* Main Content */}
+        <div className="lg:col-span-2">
+          <div className="bg-white border border-gray-200 p-6">
+            
+            {/* Step 1: Shipping Information */}
+            {step === 1 && (
+              <div>
+                <div className="flex items-center gap-2 mb-6">
+                  <Truck className="text-pink-300" size={24} />
+                  <h2 className="text-2xl font-semibold text-gray-900">Shipping Information</h2>
+                </div>
+
+                {/* Saved Addresses Section */}
+                {savedAddresses.length > 0 && (
+                  <div className="mb-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Select Delivery Address</h3>
+                    <div className="space-y-3 mb-4">
+                      {savedAddresses.map((address) => (
+                        <label
+                          key={address.id}
+                          className={`flex items-start p-4 border-2 cursor-pointer transition-colors ${
+                            selectedAddressId === address.id && !useNewAddress
+                              ? 'border-pink-300 bg-pink-50'
+                              : 'border-gray-300 hover:border-pink-300'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="savedAddress"
+                            checked={selectedAddressId === address.id && !useNewAddress}
+                            onChange={() => {
+                              setSelectedAddressId(address.id);
+                              setUseNewAddress(false);
+                              populateFormWithAddress(address);
+                            }}
+                            className="mt-1 text-pink-300 focus:ring-pink-300"
+                          />
+                          <div className="ml-3 flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-semibold text-gray-900">{address.label}</span>
+                              {address.isDefault && (
+                                <span className="px-2 py-0.5 bg-pink-300 text-white text-xs font-medium">
+                                  Default
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-900 font-medium">{address.name}</p>
+                            <p className="text-sm text-gray-600">{address.address}</p>
+                            <p className="text-sm text-gray-600">{address.city}, {address.state}</p>
+                            <p className="text-sm text-gray-600">{address.phone}</p>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                    
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUseNewAddress(true);
+                        setSelectedAddressId(null);
+                        setFormData({
+                          ...formData,
+                          firstName: '',
+                          lastName: '',
+                          phone: '',
+                          address: '',
+                          city: '',
+                          state: '',
+                          zipCode: ''
+                        });
+                      }}
+                      className={`w-full py-3 border-2 font-medium transition-colors ${
+                        useNewAddress
+                          ? 'border-pink-300 bg-pink-50 text-pink-400'
+                          : 'border-gray-300 text-gray-700 hover:border-pink-300'
+                      }`}
+                    >
+                      + Use a different address
+                    </button>
                   </div>
+                )}
+
+                <div className={savedAddresses.length > 0 && !useNewAddress ? 'hidden' : ''}>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    {savedAddresses.length > 0 ? 'New Delivery Address' : 'Delivery Information'}
+                  </h3>
 
                   <div className="space-y-4">
                     <div className="grid md:grid-cols-2 gap-4">
@@ -317,6 +672,7 @@ const handlePlaceOrder = () => {
                       </label>
                     </div>
                   </div>
+                </div>
                 </div>
               )}
 
@@ -640,11 +996,14 @@ const handlePlaceOrder = () => {
               </div>
             </div>
           </div>
-          {showOrderStatus && (
+{showOrderStatus && (
   <div className="fixed inset-0 bg-black/[0.7] mt-25 bg-opacity-50 flex items-center justify-center z-50 p-4">
     <div className="bg-white rounded-lg max-w-md w-full p-6 relative">
       <button
-        onClick={() => setShowOrderStatus(false)}
+        onClick={() => {
+          setShowOrderStatus(false);
+          window.location.href = '/';
+        }}
         className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
       >
         ✕
@@ -660,10 +1019,10 @@ const handlePlaceOrder = () => {
         <h3 className="text-2xl font-bold text-gray-900 mb-2">Order Placed Successfully!</h3>
         <p className="text-gray-600 mb-6">Thank you for your purchase. Your order has been confirmed.</p>
         
-        <div className="bg-gray-50 border border-gray-200 p-4 mb-6 text-left">
+        <div className="bg-gray-50 border border-gray-200 p-4 mb-4 text-left">
           <div className="flex justify-between text-sm mb-2">
             <span className="text-gray-600">Order Number:</span>
-            <span className="font-semibold text-gray-900">#LS{Math.floor(100000 + Math.random() * 900000)}</span>
+            <span className="font-semibold text-gray-900">{orderNumber}</span>
           </div>
           <div className="flex justify-between text-sm mb-2">
             <span className="text-gray-600">Total Amount:</span>
@@ -676,13 +1035,27 @@ const handlePlaceOrder = () => {
             </span>
           </div>
         </div>
+
+        {/* OTP Display */}
+        <div className="bg-pink-50 border-2 border-pink-300 p-4 mb-4">
+          <p className="text-sm font-semibold text-gray-900 mb-2">Your Order OTP:</p>
+          <div className="text-3xl font-bold text-pink-300 tracking-widest mb-2">
+            {orderOtp}
+          </div>
+          <p className="text-xs text-gray-600">
+            Please save this OTP for order tracking and verification
+          </p>
+        </div>
         
         <p className="text-sm text-gray-600 mb-6">
-          A confirmation email has been sent to <span className="font-medium">{formData.email}</span>
+          A confirmation email with your OTP has been sent to <span className="font-medium">{formData.email}</span>
         </p>
         
         <button
-          onClick={() => setShowOrderStatus(false)}
+          onClick={() => {
+            setShowOrderStatus(false);
+            window.location.href = '/';
+          }}
           className="w-full py-3 bg-pink-300 text-white font-semibold hover:bg-pink-400 transition-colors"
         >
           Continue Shopping

@@ -6,6 +6,7 @@ import photo1 from '../assets/phot1.jpg'
 import photo2 from '../assets/phot2.jpg'
 import photo3 from '../assets/phot3.jpg'
 import photo4 from '../assets/phot4.jpg'
+import { Link } from 'react-router-dom';
 
 const banners = [
   {
@@ -48,42 +49,48 @@ const collections = [
     title: 'NEW ARRIVALS',
     description: 'Discover the latest trends for your little ones',
     image: photo1,
-    itemCount: '250+ Items'
+    itemCount: '250+ Items',
+    href: '/collections?category=NEW+ARRIVALS'
   },
   {
     id: 2,
     title: 'GIRLS COLLECTION',
     description: 'Adorable outfits for every occasion',
     image: 'https://images.unsplash.com/photo-1518831959646-742c3a14ebf7?w=800&h=600&fit=crop',
-    itemCount: '180+ Items'
+    itemCount: '180+ Items',
+    href: '/collections?category=GIRLS'
   },
   {
     id: 3,
     title: 'BOYS COLLECTION',
     description: 'Stylish and comfortable for active boys',
     image: 'https://images.unsplash.com/photo-1519238263530-99bdd11df2ea?w=800&h=600&fit=crop',
-    itemCount: '160+ Items'
+    itemCount: '160+ Items',
+    href: '/collections?category=BOYS'
   },
   {
     id: 4,
     title: 'BABY COLLECTION',
     description: 'Gentle and cozy for your baby',
     image: 'https://images.unsplash.com/photo-1522771930-78848d9293e8?w=800&h=600&fit=crop',
-    itemCount: '120+ Items'
+    itemCount: '120+ Items',
+    href: '/collections?category=BABY'
   },
   {
     id: 5,
     title: 'ACCESSORIES',
     description: 'Complete the look with perfect accessories',
     image: 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=800&h=600&fit=crop',
-    itemCount: '90+ Items'
+    itemCount: '90+ Items',
+    href: '/collections?category=ACCESSORIES'
   },
   {
     id: 6,
     title: 'FOOTWEAR',
     description: 'Shoes for every step of their journey',
     image: 'https://images.unsplash.com/photo-1514989940723-e8e51635b782?w=800&h=600&fit=crop',
-    itemCount: '75+ Items'
+    itemCount: '75+ Items',
+    href: '/collections?category=FOOTWEAR'
   }
 ];
 
@@ -245,9 +252,11 @@ const [isTransitioning, setIsTransitioning] = useState(false);
                 <p className="text-gray-600 text-sm mb-4">{collection.description}</p>
                 <div className="flex items-center justify-between">
                   <span className="text-pink-300 text-sm font-medium">{collection.itemCount}</span>
+                  <Link to={collection.href}>
                   <button className="bg-pink-300 text-white px-6 py-2 text-sm font-medium hover:bg-pink-400 transition-colors">
                     Explore
                   </button>
+                  </Link>
                 </div>
               </div>
             </div>

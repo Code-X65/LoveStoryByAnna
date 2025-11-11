@@ -1,7 +1,8 @@
 import { initializeApp } from 'firebase/app';
+import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 import { getAuth } from 'firebase/auth';
 
-// Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyAHRbvGZOUwkAKFScGSK2aPwaTzMmK6lYk",
   authDomain: "lovestorybyanna-80609.firebaseapp.com",
@@ -12,10 +13,12 @@ const firebaseConfig = {
   measurementId: "G-7LCC5TP80G"
 };
 
-
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firebase Authentication and get a reference to the service
+// Initialize services
+export const db = getFirestore(app);
+export const storage = getStorage(app);
 export const auth = getAuth(app);
+
 export default app;

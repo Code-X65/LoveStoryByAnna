@@ -21,6 +21,8 @@ import UserProfileDashboard from './Pages/UserProfileDashboard';
 import ForgotPasswordPage from './Components/ForgotPasswordPage';
 import NotFoundPage from './Pages/NotFoundPage';
 import CollectionPages from './Pages/CollectionPages';
+import DenimCollectionPage from './Pages/DenimCollectionPage';
+import MyOrders from './Pages/AccountManagement/MyOrders';
 
 const App = () => {
   return (
@@ -35,8 +37,10 @@ const App = () => {
             <Route index element={<Homepages />} />
             <Route path='/clothing' element={<KidsClothingShop />} />
             <Route path='/collections/:category?' element={<ProductCollections />} />
-            <Route path='/details' element={<ProductDetailPage />} />
+            <Route path='/details/:productId' element={<ProductDetailPage />} />
             <Route path='/collect' element={<CollectionPages />} />
+            <Route path='/Denim' element={<DenimCollectionPage />} />
+
 
             <Route path='*' element={<NotFoundPage />} />
 
@@ -82,6 +86,14 @@ const App = () => {
               element={
                 <ProtectedRoute>
                   <WishlistPage />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path='/order' 
+              element={
+                <ProtectedRoute>
+                  <MyOrders />
                 </ProtectedRoute>
               } 
             />

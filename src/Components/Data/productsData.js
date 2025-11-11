@@ -228,14 +228,54 @@ export const products = [
   }
 ];
 
-export const collections = [
-  { name: "TWO-PIECE SETS", count: 42, subcategories: ['CORD SETS', 'MATCHING TOP & BOTTOM'] },
-  { name: "DRESSES", count: 68, subcategories: ['CASUAL DRESSES', 'SPECIAL OCCASION DRESSES'] },
-  { name: "TOPS", count: 35, subcategories: ['T-SHIRTS', 'BLOUSES', 'JACKETS'] },
-  { name: "BOTTOMS", count: 28, subcategories: ['SHORTS', 'JEANS', 'TROUSERS'] },
-  { name: "FOOTWEAR", count: 22, subcategories: ['SHOES', 'SANDALS'] },
-  { name: "OTHERS", count: 15, subcategories: ['GIFT CARDS'] }
-];
+// Dynamic collections based on category
+export const getCollectionsByCategory = (category) => {
+  const collectionsMap = {
+    'GIRLS': [
+      { name: "TWO-PIECE SETS", count: 0, subcategories: ['CORD SETS', 'MATCHING TOP & BOTTOM'] },
+      { name: "DRESSES", count: 0, subcategories: ['CASUAL DRESSES', 'SPECIAL OCCASION DRESSES'] },
+      { name: "TOPS", count: 0, subcategories: ['T-SHIRTS', 'BLOUSES', 'JACKETS'] },
+      { name: "BOTTOMS", count: 0, subcategories: ['SHORTS', 'JEANS', 'TROUSERS'] },
+      { name: "FOOTWEAR", count: 0, subcategories: ['SHOES', 'SANDALS'] },
+      { name: "OTHERS", count: 0, subcategories: ['GIFT CARDS'] }
+    ],
+    'BOYS': [
+      { name: "TWO-PIECE SETS", count: 0, subcategories: ['CORD SETS', 'MATCHING TOP & BOTTOM'] },
+      { name: "TOPS", count: 0, subcategories: ['T-SHIRTS', 'SHIRTS', 'JACKETS'] },
+      { name: "BOTTOMS", count: 0, subcategories: ['SHORTS', 'JEANS', 'TROUSERS'] },
+      { name: "FOOTWEAR", count: 0, subcategories: ['SHOES', 'SNEAKERS'] },
+      { name: "OTHERS", count: 0, subcategories: ['GIFT CARDS'] }
+    ],
+    'BABY': [
+      { name: "BABY GIRL", count: 0, subcategories: ['TWO-PIECE SETS', 'DRESSES'] },
+      { name: "BABY BOY", count: 0, subcategories: ['TWO-PIECE SETS'] },
+      { name: "FOOTWEAR", count: 0, subcategories: ['SOFT SHOES'] }
+    ],
+    'NEW ARRIVALS': [
+      { name: "LATEST COLLECTION", count: 0, subcategories: [] },
+      { name: "BEST SELLERS", count: 0, subcategories: [] }
+    ],
+    'ACCESSORIES': [
+      { name: "HAIR ACCESSORIES", count: 0, subcategories: ['HAIR BOWS'] },
+      { name: "FASHION ACCESSORIES", count: 0, subcategories: ['HATS', 'BAGS', 'SOCKS'] }
+    ],
+    'FOOTWEAR': [
+      { name: "BABY SHOES", count: 0, subcategories: [] },
+      { name: "KIDS SHOES", count: 0, subcategories: [] }
+    ]
+  };
+
+  // Calculate actual counts from products
+  const categoryCollections = collectionsMap[category] || collectionsMap['GIRLS'];
+  
+  return categoryCollections.map(collection => {
+    const count = products.filter(p => 
+      p.category === category && p.collection === collection.name
+    ).length;
+    
+    return { ...collection, count };
+  });
+};
 
 export const priceRanges = [
   { label: "Under ₦20,000", count: 15 },
@@ -261,4 +301,156 @@ export const colorOptions = [
   { label: "Red", count: 18, hex: "#EF4444" },
   { label: "Yellow", count: 15, hex: "#F59E0B" },
   { label: "Multi-Color", count: 38, hex: "linear-gradient(45deg, #EC4899, #A855F7, #3B82F6)" }
+];
+
+
+export // Import your actual product data
+const girlsProducts = [
+  {
+    id: 1,
+    name: 'BLACK GIRLS CARGO DENIM TROUSER',
+    price: 41950,
+    category: 'GIRLS',
+    type: 'Trousers',
+    image1: 'https://images.unsplash.com/photo-1518831959646-742c3a14ebf7?w=400&h=600&fit=crop',
+    image2: 'https://images.unsplash.com/photo-1545291730-faff8ca1d4b0?w=400&h=600&fit=crop'
+  },
+  {
+    id: 2,
+    name: 'BLUE DENIM WIDE LEG TROUSER',
+    price: 79950,
+    category: 'GIRLS',
+    type: 'Trousers',
+    image1: 'https://images.unsplash.com/photo-1547119957-637f8679db1e?w=400&h=600&fit=crop',
+    image2: 'https://images.unsplash.com/photo-1581783898377-1c85bf937427?w=400&h=600&fit=crop'
+  },
+  {
+    id: 3,
+    name: 'BLACK DENIM WIDE LEG TROUSER',
+    price: 79950,
+    category: 'GIRLS',
+    type: 'Trousers',
+    image1: 'https://images.unsplash.com/photo-1518831959646-742c3a14ebf7?w=400&h=600&fit=crop',
+    image2: 'https://images.unsplash.com/photo-1612423284934-2850a4ea6b0f?w=400&h=600&fit=crop'
+  },
+  {
+    id: 4,
+    name: 'BLUE DENIM STRAIGHT LEG TROUSER',
+    price: 67950,
+    category: 'GIRLS',
+    type: 'Trousers',
+    image1: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=400&h=600&fit=crop',
+    image2: 'https://images.unsplash.com/photo-1518831959646-742c3a14ebf7?w=400&h=600&fit=crop'
+  },
+  {
+    id: 5,
+    name: 'LIGHT WASH DENIM JACKET',
+    price: 54950,
+    category: 'GIRLS',
+    type: 'Jackets',
+    image1: 'https://images.unsplash.com/photo-1621452773781-0f992fd1f5cb?w=400&h=600&fit=crop',
+    image2: 'https://images.unsplash.com/photo-1596870230751-ebdfce98ec42?w=400&h=600&fit=crop'
+  },
+  {
+    id: 6,
+    name: 'RIPPED DENIM SHORTS',
+    price: 32950,
+    category: 'GIRLS',
+    type: 'Shorts',
+    image1: 'https://images.unsplash.com/photo-1596870230751-ebdfce98ec42?w=400&h=600&fit=crop',
+    image2: 'https://images.unsplash.com/photo-1612423284934-2850a4ea6b0f?w=400&h=600&fit=crop'
+  },
+  {
+    id: 7,
+    name: 'DARK WASH SKINNY JEANS',
+    price: 45950,
+    category: 'GIRLS',
+    type: 'Jeans',
+    image1: 'https://images.unsplash.com/photo-1581783898377-1c85bf937427?w=400&h=600&fit=crop',
+    image2: 'https://images.unsplash.com/photo-1547119957-637f8679db1e?w=400&h=600&fit=crop'
+  },
+  {
+    id: 8,
+    name: 'DENIM DUNGAREE DRESS',
+    price: 58950,
+    category: 'GIRLS',
+    type: 'Dresses',
+    image1: 'https://images.unsplash.com/photo-1518831959646-742c3a14ebf7?w=400&h=600&fit=crop',
+    image2: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=400&h=600&fit=crop'
+  }
+];
+
+export const boysProducts = [
+  {
+    id: 9,
+    name: 'BOYS CLASSIC BLUE DENIM JEANS',
+    price: 38950,
+    category: 'BOYS',
+    type: 'Jeans',
+    image1: 'https://images.unsplash.com/photo-1519238263530-99bdd11df2ea?w=400&h=600&fit=crop',
+    image2: 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=400&h=600&fit=crop'
+  },
+  {
+    id: 10,
+    name: 'BOYS BLACK DENIM JACKET',
+    price: 52950,
+    category: 'BOYS',
+    type: 'Jackets',
+    image1: 'https://images.unsplash.com/photo-1542272604-787c3835535d?w=400&h=600&fit=crop',
+    image2: 'https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=400&h=600&fit=crop'
+  },
+  {
+    id: 11,
+    name: 'BOYS DISTRESSED DENIM SHORTS',
+    price: 29950,
+    category: 'BOYS',
+    type: 'Shorts',
+    image1: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=400&h=600&fit=crop',
+    image2: 'https://images.unsplash.com/photo-1519238263530-99bdd11df2ea?w=400&h=600&fit=crop'
+  },
+  {
+    id: 12,
+    name: 'BOYS SLIM FIT DENIM JEANS',
+    price: 42950,
+    category: 'BOYS',
+    type: 'Jeans',
+    image1: 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=400&h=600&fit=crop',
+    image2: 'https://images.unsplash.com/photo-1490578474895-699cd4e2cf59?w=400&h=600&fit=crop'
+  },
+  {
+    id: 13,
+    name: 'BOYS LIGHT WASH DENIM PANTS',
+    price: 39950,
+    category: 'BOYS',
+    type: 'Trousers',
+    image1: 'https://images.unsplash.com/photo-1516826957135-700dedea698c?w=400&h=600&fit=crop',
+    image2: 'https://images.unsplash.com/photo-1544441892-794166f1e3be?w=400&h=600&fit=crop'
+  },
+  {
+    id: 14,
+    name: 'BOYS CARGO DENIM SHORTS',
+    price: 34950,
+    category: 'BOYS',
+    type: 'Shorts',
+    image1: 'https://images.unsplash.com/photo-1581803118522-7b72a50f7e9f?w=400&h=600&fit=crop',
+    image2: 'https://images.unsplash.com/photo-1617127365659-c47fa864d8bc?w=400&h=600&fit=crop'
+  },
+  {
+    id: 15,
+    name: 'BOYS RIPPED KNEE JEANS',
+    price: 46950,
+    category: 'BOYS',
+    type: 'Jeans',
+    image1: 'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=400&h=600&fit=crop',
+    image2: 'https://images.unsplash.com/photo-1564859228273-274232fdb516?w=400&h=600&fit=crop'
+  },
+  {
+    id: 16,
+    name: 'BOYS DENIM DUNGAREE',
+    price: 55950,
+    category: 'BOYS',
+    type: 'Overalls',
+    image1: 'https://images.unsplash.com/photo-1504593811423-6dd665756598?w=400&h=600&fit=crop',
+    image2: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=400&h=600&fit=crop'
+  }
 ];
