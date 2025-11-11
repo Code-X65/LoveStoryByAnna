@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import { Heart, ShoppingCart, Filter, X, ChevronDown, Sparkles, Crown, Star, TrendingUp, Zap } from 'lucide-react';
+import man from '../assets/man.png'
+
+import woman from '../assets/woman.png'
 
 import {girlsProducts, boysProducts} from '../Components/Data/productsData'
 
@@ -16,7 +19,7 @@ function ProductCard({ product }) {
         <Crown className="w-3 h-3" />
         PREMIUM
       </div>
-
+        img
       <div 
         className="relative overflow-hidden bg-gradient-to-br from-gray-900 to-gray-800 mb-4 aspect-[3/4] rounded-lg shadow-xl transition-all duration-500 group-hover:shadow-2xl group-hover:scale-[1.02]"
         onMouseEnter={() => setIsHovered(true)}
