@@ -7,6 +7,7 @@ import ProductGrid from '../Components/common/ProductGrid'
 import DenimFeverSection from '../Components/common/DenimFeverSection'
 import BabyShop from '../Components/common/BabyShop'
 import BabyBanner from '../Components/common/BabyBanner'
+import TestimonialSection from '../Components/common/TestimonialSection'
 
 const Homepages = () => {
   return (
@@ -17,6 +18,7 @@ const Homepages = () => {
     <ProductGrid />
     <DenimFeverSection />
     <BabyBanner />
+    <TestimonialSection />
     {/* <BabyShop /> */}
     
     

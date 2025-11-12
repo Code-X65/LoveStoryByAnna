@@ -19,7 +19,7 @@ function ProductCard({ product }) {
         <Crown className="w-3 h-3" />
         PREMIUM
       </div>
-        img
+   
       <div 
         className="relative overflow-hidden bg-gradient-to-br from-gray-900 to-gray-800 mb-4 aspect-[3/4] rounded-lg shadow-xl transition-all duration-500 group-hover:shadow-2xl group-hover:scale-[1.02]"
         onMouseEnter={() => setIsHovered(true)}
@@ -144,14 +144,16 @@ export default function DenimCollectionPage() {
     <div className="bg-gradient-to-br from-gray-50 via-pink-50 to-purple-50 min-h-screen">
       {/* Luxury Header Banner */}
       <div className="relative bg-gradient-to-r from-gray-900 via-purple-900 to-pink-900 text-white py-20 px-4 overflow-hidden">
+             
         {/* Animated Background Elements */}
         <div className="absolute inset-0 opacity-20">
           <div className="absolute top-10 left-10 w-32 h-32 bg-pink-500 rounded-full blur-3xl animate-pulse"></div>
           <div className="absolute bottom-10 right-10 w-40 h-40 bg-purple-500 rounded-full blur-3xl animate-pulse delay-1000"></div>
           <div className="absolute top-1/2 left-1/2 w-36 h-36 bg-yellow-500 rounded-full blur-3xl animate-pulse delay-500"></div>
         </div>
-
-        <div className="max-w-7xl mx-auto text-center relative z-10">
+        <div className=" max-w-7xl mx-auto flex justify-between items-center">
+<img src={man} alt="" className="max-h-[600px]" />
+        <div className=" text-center relative z-10">
           <div className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-400 to-yellow-500 text-black px-4 py-2 rounded-full text-sm font-bold mb-6 shadow-lg">
             <Crown className="w-4 h-4" />
             EXCLUSIVE VIP COLLECTION
@@ -178,6 +180,9 @@ export default function DenimCollectionPage() {
             </div>
           </div>
         </div>
+        <img src={woman} alt="" className="max-h-[600px]" />
+        </div>
+
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">

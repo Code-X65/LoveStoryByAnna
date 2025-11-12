@@ -736,7 +736,7 @@ return (
     </div>
 
     {/* Main Content - Scrollable Area */}
-    <div className="flex-1 overflow-hidden">
+    <div className="flex-1 ">
       <div className="max-w-7xl mx-auto px-4 h-full">
         <div className="flex flex-col lg:flex-row gap-8 h-full">
           {/* Mobile Filter Overlay */}
@@ -754,7 +754,7 @@ return (
 
             {/* Active Filters Summary */}
             {(selectedFilters.collection.length > 0 || selectedFilters.subcategory?.length > 0 || selectedFilters.price.length > 0 || selectedFilters.size.length > 0 || selectedFilters.color.length > 0) && (
-              <div className="p-4 border-b border-gray-200" style={{ backgroundColor: colors.bg }}>
+              <div className="p-4  border-b border-gray-200" style={{ backgroundColor: colors.bg }}>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-semibold text-gray-700">ACTIVE FILTERS</span>
                   <button 
@@ -788,7 +788,7 @@ return (
               </div>
             )}
 
-            <div className="p-4">
+            <div className="p-4 overflow-y-auto h-96">
               {/* Collection Filter */}
               <div className="mb-6 pb-6 border-b border-gray-200">
                 <button 
@@ -1002,7 +1002,7 @@ return (
           </aside>
 
      {/* Products Grid */}
-<main className="flex-1 overflow-y-scroll scrollbar-hide h-full py-8">
+<main className="flex-1 h-full py-8">
   {sortedProducts.length === 0 ? (
     <div className="flex flex-col items-center justify-center h-full py-20">
       <div className="text-center">
