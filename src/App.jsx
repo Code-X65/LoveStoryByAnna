@@ -29,7 +29,7 @@ import ProtectedRoute from './Components/ProtectedRoute';
 const App = () => {
   return (
     <div>
-      <Router>
+      <Router basename='/LoveStoryByAnna/'>
         <ScrollToTop />
         <RouteChangeLoader />
         <Navbar />
