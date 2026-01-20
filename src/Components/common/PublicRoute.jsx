@@ -1,6 +1,6 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
-import { useAuth } from '../../Firebase/AuthContext';
+import { useAuth } from '../../Context/AuthContextCore';
 
 const PublicRoute = ({ children }) => {
   const { currentUser } = useAuth();

@@ -1,16 +1,31 @@
-# React + Vite
+# Love Story - Customer Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+The official e-commerce website for Love Story By Anna. A premium fashion experience built with React, Vite, Tailwind CSS, and powered by Firebase.
 
-Currently, two official plugins are available:
+## 🚀 Recent Updates
+- **Supabase to Firebase Migration**: Unified the backend storage and authentication with Firebase for better performance and reliability.
+- **Improved Checkout flow**: Integrated basic address management and order creation services.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 🛠 Project Status
+The customer frontend is currently in active development, focusing on moving from a "demonstration" state to a "live" state.
 
-## React Compiler
+### Fully Functional Modules:
+- [x] **Product Catalog**: Browsing collections (Denim, All, etc.) with real-time Firestore data.
+- [x] **Shopping Cart**: Fully functional persistent cart using React Context.
+- [x] **User Authentication**: Secure Login/Signup with Firebase Auth.
+- [x] **Wishlist**: Persistent wishlist management.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Pending Requirements (Full Functionality):
+- [ ] **Live Payment Integration**: Seamless integration with **Paystack** or **Flutterwave** for card and bank payments.
+- [ ] **Dynamic Shipping**: Zone-based shipping cost calculation during checkout.
+- [ ] **Order Tracking**: Customer dashboard to track order status (Processing, Shipped, Delivered).
+- [ ] **Advanced Filtering**: Filtering products by size, color, price range, and search.
+- [ ] **Media Optimization**: Moving from base64 image strings to Firebase Storage for faster page loads.
+- [ ] **SEO & Metadata**: Optimized meta tags for social sharing and search engine visibility.
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## 📦 Tech Stack
+- **Frontend**: React 19, Vite
+- **Styling**: Tailwind CSS, Framer Motion (for animations)
+- **Icons**: Lucide React
+- **Backend**: Firebase (Auth, Firestore, Storage)
+- **Payment Gateway**: Paystack / Flutterwave (Pending)

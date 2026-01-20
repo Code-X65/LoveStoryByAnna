@@ -1,81 +1,77 @@
 import React, { useState, useEffect } from 'react';
 import { Trash2, Plus, Minus, ShoppingBag, ArrowRight, Heart, Tag } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '../Firebase/Firebase';
-import { getUserCart, updateCartItem, removeFromCart } from '../Firebase/cartServices';
-import { addToWishlist } from '../Firebase/wishlistServices';
+import { Link, useNavigate } from 'react-router-dom';
+
+import { useCart } from '../Context/CartContext';
+import { useWishlist } from '../Context/WishlistContext';
+import { useToast } from '../Context/ToastContext';
+import { useAuth } from '../Context/AuthContextCore';
+import InlineLoader from '../Components/common/InlineLoader';
 const CartPage = () => {
-const [cartItems, setCartItems] = useState([]);
-const [userId, setUserId] = useState(null);
-const [loading, setLoading] = useState(true);
+  const {
+    cartItems,
+    loading,
+    updateItemQuantity,
+    removeItemFromCart,
+    cartSubtotal
+  } = useCart();
+  const { addToWishlist } = useWishlist();
+  const toast = useToast();
+  const { currentUser } = useAuth();
+  const navigate = useNavigate();
 
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState(null);
 
-const updateQuantity = async (cartItemId, action) => {
-  const item = cartItems.find(item => item.cartItemId === cartItemId);
-  if (!item) return;
-  
-  const newQuantity = action === 'increment' ? item.quantity + 1 : Math.max(1, item.quantity - 1);
-  
-  await updateCartItem(userId, cartItemId, newQuantity);
-  
-  setCartItems(cartItems.map(item => {
-    if (item.cartItemId === cartItemId) {
-      return { ...item, quantity: newQuantity };
+  const updateQuantity = async (cartItemId, action) => {
+    const item = cartItems.find(i => i.cartItemId === cartItemId);
+    const newQuantity = action === 'increment' ? item.quantity + 1 : Math.max(1, item.quantity - 1);
+    await updateItemQuantity(cartItemId, newQuantity);
+  };
+
+  const removeItem = async (cartItemId) => {
+    const item = cartItems.find(i => i.cartItemId === cartItemId);
+    await removeItemFromCart(cartItemId);
+    if (item) {
+      toast.info(`"${item.name}" removed from cart`);
     }
-    return item;
-  }));
-};
+  };
 
-const removeItem = async (cartItemId) => {
-  await removeFromCart(userId, cartItemId);
-  setCartItems(cartItems.filter(item => item.cartItemId !== cartItemId));
-};
+  const moveToWishlist = async (cartItemId) => {
+    if (!currentUser) {
+      toast.warning('Please login to save items to wishlist');
+      navigate('/login');
+      return;
+    }
 
-const moveToWishlist = async (cartItemId) => {
-  const item = cartItems.find(item => item.cartItemId === cartItemId);
-  if (!item) return;
-  
-  try {
-    // Prepare product data for wishlist
-    const productData = {
-      id: item.productId,
-      name: item.name,
-      price: item.price,
-      originalPrice: item.originalPrice || item.price, // Use original price if available
-      discount: item.discount || 0,
-      images: [item.image],
-      brand: item.brand || '',
-      rating: item.rating || 0,
-      stock: item.stock || 0
-    };
-    
+    const item = cartItems.find(item => item.cartItemId === cartItemId);
+    if (!item) return;
+
     // Add to wishlist
-    const result = await addToWishlist(userId, productData);
-    
+    const result = await addToWishlist({ id: item.productId, ...item });
+
     if (result.success) {
-      // Remove from cart after successfully adding to wishlist
-      await removeFromCart(userId, cartItemId);
-      setCartItems(cartItems.filter(item => item.cartItemId !== cartItemId));
-      alert('Item moved to wishlist!');
+      // Remove from cart
+      await removeItemFromCart(cartItemId);
+      toast.success(`"${item.name}" moved to wishlist!`);
+    } else if (result.error === 'Product already in wishlist') {
+      // Still remove from cart
+      await removeItemFromCart(cartItemId);
+      toast.info(`"${item.name}" is already in your wishlist`);
     } else {
-      alert(result.error || 'Failed to move item to wishlist');
+      toast.error('Failed to move item to wishlist');
     }
-  } catch (error) {
-    console.error('Error moving to wishlist:', error);
-    alert('Failed to move item to wishlist');
-  }
-};
+  };
 
   const applyCoupon = () => {
     if (couponCode.toUpperCase() === 'SAVE10') {
       setAppliedCoupon({ code: 'SAVE10', discount: 10 });
+      toast.success('Coupon applied! 10% discount');
     } else if (couponCode.toUpperCase() === 'WELCOME15') {
       setAppliedCoupon({ code: 'WELCOME15', discount: 15 });
+      toast.success('Coupon applied! 15% discount');
     } else {
-      alert('Invalid coupon code');
+      toast.error('Invalid coupon code');
     }
   };
 
@@ -84,43 +80,19 @@ const moveToWishlist = async (cartItemId) => {
     setCouponCode('');
   };
 
-  const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const subtotal = cartSubtotal;
   const discount = appliedCoupon ? (subtotal * appliedCoupon.discount / 100) : 0;
-  const shipping = subtotal > 50000 ? 0 : 2500;
+  const shipping = subtotal > 50000 || subtotal === 0 ? 0 : 2500;
   const total = subtotal - discount + shipping;
-  useEffect(() => {
-  const unsubscribe = onAuthStateChanged(auth, (user) => {
-    if (user) {
-      setUserId(user.uid);
-    } else {
-      setUserId(null);
-      setCartItems([]);
-      setLoading(false);
-    }
-  });
 
-  return () => unsubscribe();
-}, []);
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <InlineLoader size="md" text="Loading cart..." />
+      </div>
+    );
+  }
 
-useEffect(() => {
-  const fetchCart = async () => {
-    if (userId) {
-      setLoading(true);
-      const items = await getUserCart(userId);
-      setCartItems(items);
-      setLoading(false);
-    }
-  };
-  
-  fetchCart();
-}, [userId]);
-if (loading) {
-  return (
-    <div className="min-h-screen bg-white flex items-center justify-center">
-      <p className="text-gray-600">Loading cart...</p>
-    </div>
-  );
-}
   return (
     <div className="min-h-screen bg-white">
       <div className="max-w-7xl mx-auto px-4 py-8">
@@ -143,16 +115,18 @@ if (loading) {
             <ShoppingBag className="mx-auto text-gray-300 mb-4" size={80} />
             <h2 className="text-2xl font-semibold text-gray-900 mb-2">Your cart is empty</h2>
             <p className="text-gray-600 mb-6">Add items to get started</p>
-            <button className="bg-pink-300 text-white px-8 py-3 font-semibold hover:bg-pink-400 transition-colors">
-              Continue Shopping
-            </button>
+            <Link to="/shop">
+              <button className="bg-pink-300 text-white px-8 py-3 font-semibold hover:bg-pink-400 transition-colors">
+                Continue Shopping
+              </button>
+            </Link>
           </div>
         ) : (
           <div className="grid lg:grid-cols-3 gap-8">
             {/* Cart Items */}
             <div className="lg:col-span-2 space-y-4">
-             {cartItems.map((item) => (
-  <div key={item.cartItemId} className="border border-gray-200 p-4 bg-white">
+              {cartItems.map((item) => (
+                <div key={item.cartItemId} className="border border-gray-200 p-4 bg-white">
                   <div className="flex gap-4">
                     {/* Product Image */}
                     <div className="flex-shrink-0">
@@ -174,11 +148,11 @@ if (loading) {
                             <p>Size: <span className="text-gray-900 font-medium">{item.size}</span></p>
                             <p>Color: <span className="text-gray-900 font-medium">{item.color}</span></p>
                           </div>
-                          
-                          {!item.inStock && (
+
+                          {item.inStock && (
                             <div className="mt-2">
-                              <span className="text-xs bg-red-100 text-red-600 px-2 py-1 font-medium">
-                                Out of Stock
+                              <span className="text-xs bg-green-100 text-green-600 px-2 py-1 font-medium">
+                                In Stock
                               </span>
                             </div>
                           )}
@@ -189,6 +163,11 @@ if (loading) {
                           <p className="text-xl font-bold text-gray-900">
                             ₦{item.price.toLocaleString()}
                           </p>
+                          {item.originalPrice > item.price && (
+                            <p className="text-sm text-gray-500 line-through">
+                              ₦{item.originalPrice.toLocaleString()}
+                            </p>
+                          )}
                         </div>
                       </div>
 
@@ -197,7 +176,7 @@ if (loading) {
                         {/* Quantity Selector */}
                         <div className="flex items-center border border-gray-300">
                           <button
-                           onClick={() => updateQuantity(item.cartItemId, 'decrement')}
+                            onClick={() => updateQuantity(item.cartItemId, 'decrement')}
                             className="p-2 hover:bg-gray-50 transition-colors"
                             disabled={item.quantity <= 1}
                           >
@@ -248,9 +227,11 @@ if (loading) {
               ))}
 
               {/* Continue Shopping Button */}
-              <button className="w-full py-3 border-2 border-pink-300 text-pink-300 font-semibold hover:bg-pink-300 hover:text-white transition-all">
-                Continue Shopping
-              </button>
+              <Link to="/shop">
+                <button className="w-full py-3 border-2 border-pink-300 text-pink-300 font-semibold hover:bg-pink-300 hover:text-white transition-all">
+                  Continue Shopping
+                </button>
+              </Link>
             </div>
 
             {/* Order Summary */}
@@ -296,6 +277,9 @@ if (loading) {
                       ✓ Coupon "{appliedCoupon.code}" applied! {appliedCoupon.discount}% off
                     </p>
                   )}
+                  <p className="text-xs text-gray-500 mt-2">
+                    Try: SAVE10 (10% off) or WELCOME15 (15% off)
+                  </p>
                 </div>
 
                 {/* Price Breakdown */}
@@ -304,14 +288,14 @@ if (loading) {
                     <span className="text-gray-600">Subtotal</span>
                     <span className="font-medium text-gray-900">₦{subtotal.toLocaleString()}</span>
                   </div>
-                  
+
                   {appliedCoupon && (
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Discount ({appliedCoupon.discount}%)</span>
                       <span className="font-medium text-green-600">-₦{discount.toLocaleString()}</span>
                     </div>
                   )}
-                  
+
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Shipping</span>
                     <span className="font-medium text-gray-900">
@@ -322,7 +306,7 @@ if (loading) {
                       )}
                     </span>
                   </div>
-                  
+
                   {subtotal < 50000 && (
                     <p className="text-xs text-gray-500 italic">
                       Add ₦{(50000 - subtotal).toLocaleString()} more for free shipping
@@ -337,10 +321,11 @@ if (loading) {
                 </div>
 
                 {/* Checkout Button */}
-           <Link to='/checkout'>     <button className="w-full bg-pink-300 text-white py-3 font-semibold hover:bg-pink-400 transition-colors flex items-center justify-center gap-2 mb-3">
-                  Proceed to Checkout
-                  <ArrowRight size={20} />
-                </button>
+                <Link to='/checkout'>
+                  <button className="w-full bg-pink-300 text-white py-3 font-semibold hover:bg-pink-400 transition-colors flex items-center justify-center gap-2 mb-3">
+                    Proceed to Checkout
+                    <ArrowRight size={20} />
+                  </button>
                 </Link>
 
                 {/* Security Badge */}
@@ -363,7 +348,6 @@ if (loading) {
       </div>
     </div>
   );
-
 };
 
 export default CartPage;

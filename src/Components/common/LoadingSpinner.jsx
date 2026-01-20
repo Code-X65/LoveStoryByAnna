@@ -1,24 +1,24 @@
 import React from 'react';
-
+import Logo from '../../assets/Logo.png'
 const LoadingSpinner = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-white">
-      <div className="flex flex-col items-center gap-4">
+      <div className="flex flex-col items-center gap-6">
         {/* Spinner with logo in the center */}
-        <div className="relative w-16 h-16 flex items-center justify-center">
-          {/* Spinning border */}
-          <div className="absolute inset-0 border-4 border-pink-300 border-t-transparent rounded-full animate-spin"></div>
+        <div className="relative w-32 h-32 flex items-center justify-center">
+          {/* Spinning border - larger and more prominent */}
+          <div className="absolute inset-0 border-4 border-pink-300 border-t-pink-500 rounded-full animate-spin"></div>
 
-          {/* Center logo */}
-          <img 
-            src="https://lovestorybyanna.com/wp-content/uploads/2025/02/cropped-Black-and-Yellow-Classy-and-Refined-Curved-Text-Logo-70x69.png" 
-            alt="Logo" 
-            className="w-8 h-8 object-contain"
+          {/* Center logo - larger and more visible */}
+          <img
+            src={Logo}
+            alt="Love Story by Anna"
+            className="w-20 h-20 object-contain"
           />
         </div>
 
         {/* Loading text */}
-        <p className="text-gray-600">Loading...</p>
+        <p className="text-gray-600 text-lg font-medium">Loading...</p>
       </div>
     </div>
   );
